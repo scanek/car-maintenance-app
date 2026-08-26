@@ -37,214 +37,309 @@
             transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .modal-backdrop {
-            background: rgba(15, 23, 42, 0.7);
+            background: rgba(15, 23, 42, 0.75);
             backdrop-filter: blur(4px);
+        }
+        .tab-active {
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            color: #94a3b8;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-inactive:hover {
+            color: #cbd5e1;
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen">
 
     <!-- Top Navigation Header -->
-    <header class="border-b border-slate-800 dark:border-slate-800 bg-slate-900/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div class="bg-blue-600/20 text-blue-400 p-2 rounded-xl border border-blue-500/30">
                     <i data-lucide="car" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                         <span id="vehicle-title">Changan CS55 Plus</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-300 dark:border-blue-700/50">1.5T 7DCT</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50">1.5T 7DCT</span>
                     </h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Система мониторинга износа и учета ТО</p>
+                    <p class="text-xs text-slate-400">Система мониторинга износа и учета ТО</p>
                 </div>
             </div>
 
             <!-- Header Actions -->
             <div class="flex items-center space-x-2 sm:space-x-3">
                 <!-- Theme Toggle Button -->
-                <button onclick="toggleTheme()" id="theme-toggle-btn" class="p-2 rounded-xl bg-slate-800 dark:bg-slate-800 text-slate-300 dark:text-slate-300 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 transition" title="Переключить тему">
+                <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 transition" title="Переключить тему">
                     <i data-lucide="sun" id="theme-icon-sun" class="w-4 h-4 hidden"></i>
                     <i data-lucide="moon" id="theme-icon-moon" class="w-4 h-4"></i>
                 </button>
 
                 <!-- Export Excel Button -->
-                <a href="/api/export-excel" class="flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600/20 dark:hover:bg-emerald-600/30 text-emerald-100 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-600 dark:border-emerald-500/40 transition text-xs font-semibold" title="Скачать Excel-файл">
+                <a href="/api/export-excel" class="flex items-center space-x-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-500/40 transition text-xs font-semibold" title="Скачать Excel-файл">
                     <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-                    <span class="hidden md:inline">Скачать Excel</span>
+                    <span class="hidden md:inline">Экспорт Excel</span>
                 </a>
 
                 <!-- Quick Update Mileage -->
-                <button onclick="openMileageModal()" class="flex items-center space-x-1.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 dark:border-slate-700 transition text-xs font-medium">
+                <button onclick="openMileageModal()" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition text-xs font-medium">
                     <i data-lucide="gauge" class="w-4 h-4 text-yellow-400"></i>
                     <span class="hidden sm:inline">Пробег</span>
                 </button>
 
-                <!-- Add Record -->
-                <button onclick="openAddModal()" class="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg shadow-lg shadow-blue-600/20 font-semibold transition text-xs">
+                <!-- Add TO Group -->
+                <button onclick="openTOGroupModal()" class="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg shadow-lg shadow-blue-600/20 font-semibold transition text-xs">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
                     <span>Добавить ТО</span>
                 </button>
             </div>
         </div>
+
+        <!-- Navigation Tabs Bar -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-xs sm:text-sm border-t border-slate-800/60 overflow-x-auto">
+            <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="py-2.5 tab-active flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                <span>Дашборд & Статус</span>
+            </button>
+            <button onclick="switchTab('to-events')" id="tab-btn-to-events" class="py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="calendar-check" class="w-4 h-4"></i>
+                <span>События ТО (<span id="tab-to-count">2</span>)</span>
+            </button>
+            <button onclick="switchTab('all-parts')" id="tab-btn-all-parts" class="py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+                <span>Журнал всех деталей</span>
+            </button>
+            <button onclick="switchTab('settings')" id="tab-btn-settings" class="py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="sliders" class="w-4 h-4"></i>
+                <span>Настройки расходников</span>
+            </button>
+        </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-        <!-- KPI Stats Cards -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- Card 1: Current Mileage & Hours -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                <div class="flex items-center justify-between text-slate-400 mb-2">
-                    <span class="text-xs font-medium uppercase tracking-wider">Текущий пробег</span>
-                    <i data-lucide="activity" class="w-4 h-4 text-blue-400"></i>
+        <!-- ============================================================= -->
+        <!-- TAB 1: DASHBOARD & MONITORING -->
+        <!-- ============================================================= -->
+        <div id="tab-content-dashboard" class="space-y-8">
+            <!-- KPI Stats Cards -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 1: Current Mileage & Hours -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider">Текущий пробег</span>
+                        <i data-lucide="activity" class="w-4 h-4 text-blue-400"></i>
+                    </div>
+                    <div class="text-2xl font-black text-white" id="kpi-km">25 340 км</div>
+                    <div class="mt-2 text-xs text-slate-400 flex items-center gap-1.5">
+                        <span class="text-yellow-400 font-semibold" id="kpi-hours">772 м/ч</span>
+                        <span>• Ср. скорость:</span>
+                        <span class="text-emerald-400 font-semibold" id="kpi-speed">32.8 км/ч</span>
+                    </div>
                 </div>
-                <div class="text-2xl font-black text-white" id="kpi-km">25 340 км</div>
-                <div class="mt-2 text-xs text-slate-400 flex items-center gap-1.5">
-                    <span class="text-yellow-400 font-semibold" id="kpi-hours">772 м/ч</span>
-                    <span>• Ср. скорость:</span>
-                    <span class="text-emerald-400 font-semibold" id="kpi-speed">32.8 км/ч</span>
-                </div>
-            </div>
 
-            <!-- Card 2: Total Spent -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex items-center justify-between text-slate-400 mb-2">
-                    <span class="text-xs font-medium uppercase tracking-wider">Всего затрат на ТО</span>
-                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+                <!-- Card 2: Total Spent -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider">Всего затрат на ТО</span>
+                        <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+                    </div>
+                    <div class="text-2xl font-black text-emerald-400" id="kpi-total-spent">13 090 ₽</div>
+                    <div class="mt-2 text-xs text-slate-400">
+                        Зафиксировано позиций: <span class="text-white font-medium" id="kpi-records-count">9</span>
+                    </div>
                 </div>
-                <div class="text-2xl font-black text-emerald-400" id="kpi-total-spent">13 090 ₽</div>
-                <div class="mt-2 text-xs text-slate-400">
-                    Зафиксировано позиций: <span class="text-white font-medium" id="kpi-records-count">9</span>
-                </div>
-            </div>
 
-            <!-- Card 3: Cost per KM -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex items-center justify-between text-slate-400 mb-2">
-                    <span class="text-xs font-medium uppercase tracking-wider">Стоимость 1 км (ТО)</span>
-                    <i data-lucide="trending-down" class="w-4 h-4 text-purple-400"></i>
+                <!-- Card 3: Cost per KM -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider">Стоимость 1 км (ТО)</span>
+                        <i data-lucide="trending-down" class="w-4 h-4 text-purple-400"></i>
+                    </div>
+                    <div class="text-2xl font-black text-purple-300" id="kpi-cost-km">0.52 ₽/км</div>
+                    <div class="mt-2 text-xs text-slate-400">
+                        Только расходники и материалы
+                    </div>
                 </div>
-                <div class="text-2xl font-black text-purple-300" id="kpi-cost-km">0.52 ₽/км</div>
-                <div class="mt-2 text-xs text-slate-400">
-                    Только расходники и материалы
-                </div>
-            </div>
 
-            <!-- Card 4: Status / Attention -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex items-center justify-between text-slate-400 mb-2">
-                    <span class="text-xs font-medium uppercase tracking-wider">Статус обслуживания</span>
-                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400" id="kpi-shield-icon"></i>
+                <!-- Card 4: Status / Attention -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider">Статус обслуживания</span>
+                        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400" id="kpi-shield-icon"></i>
+                    </div>
+                    <div class="text-2xl font-black" id="kpi-attention-text">Все в норме</div>
+                    <div class="mt-2 text-xs" id="kpi-attention-sub">Все узлы имеют запас ресурса</div>
                 </div>
-                <div class="text-2xl font-black" id="kpi-attention-text">Все в норме</div>
-                <div class="mt-2 text-xs" id="kpi-attention-sub">Все узлы имеют запас ресурса</div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Consumables Wear Status Section (Traffic Light Gauges) -->
-        <section class="space-y-4">
-            <div class="flex items-center justify-between flex-wrap gap-2">
+            <!-- Consumables Wear Status Section (Traffic Light Gauges) -->
+            <section class="space-y-4">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="gauge" class="w-5 h-5 text-blue-400"></i>
+                            <span>Мониторинг износа расходников</span>
+                        </h2>
+                        <p class="text-xs text-slate-400">Автоматический расчет остатка ресурса по пробегу и моточасам</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> В норме</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span> Скоро замена</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Замена!</span>
+                    </div>
+                </div>
+
+                <!-- Gauges Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="consumables-container">
+                    <!-- Dynamically populated -->
+                </div>
+            </section>
+
+            <!-- Analytics Charts Section -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Spend by Category Chart -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-1">
+                    <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-blue-400"></i>
+                        <span>Расходы по категориям</span>
+                    </h3>
+                    <div class="h-56 relative flex items-center justify-center">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Spending Dynamics Chart -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-2">
+                    <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
+                        <span>История затрат по этапам ТО</span>
+                    </h3>
+                    <div class="h-56">
+                        <canvas id="historyChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- TAB 2: TO EVENTS (GROUPED VIEW & BATCH EDIT) -->
+        <!-- ============================================================= -->
+        <div id="tab-content-to-events" class="space-y-6 hidden">
+            <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i data-lucide="gauge" class="w-5 h-5 text-blue-400"></i>
-                        <span>Мониторинг износа расходников</span>
+                        <i data-lucide="calendar-check" class="w-5 h-5 text-blue-400"></i>
+                        <span>История событий обслуживания (ТО)</span>
                     </h2>
-                    <p class="text-xs text-slate-400">Автоматический расчет остатка ресурса по пробегу и моточасам</p>
+                    <p class="text-xs text-slate-400">Редактирование целых ТО, добавление новых деталей и описание работ</p>
                 </div>
-                <div class="flex items-center gap-3 text-xs">
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> В норме</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span> Скоро (<1500 км)</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Замена!</span>
-                </div>
+                <button onclick="openTOGroupModal()" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/20">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>Создать новое ТО</span>
+                </button>
             </div>
 
-            <!-- Gauges Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="consumables-container">
-                <!-- Dynamically populated -->
+            <!-- TO Groups List Container -->
+            <div class="space-y-4" id="to-groups-container">
+                <!-- Populated dynamically -->
             </div>
-        </section>
+        </div>
 
-        <!-- Analytics Charts Section -->
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Spend by Category Chart -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-1">
-                <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
-                    <i data-lucide="pie-chart" class="w-4 h-4 text-blue-400"></i>
-                    <span>Расходы по категориям</span>
-                </h3>
-                <div class="h-56 relative flex items-center justify-center">
-                    <canvas id="categoryChart"></canvas>
+        <!-- ============================================================= -->
+        <!-- TAB 3: ALL PARTS FLAT TABLE -->
+        <!-- ============================================================= -->
+        <div id="tab-content-all-parts" class="space-y-4 hidden">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-400"></i>
+                            <span>Журнал всех деталей и материалов</span>
+                        </h2>
+                        <p class="text-xs text-slate-400">Детальный список со всеми ценами, артикулами и ссылками</p>
+                    </div>
+                    
+                    <!-- Search & Filters -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <input type="text" id="table-search" oninput="filterTable()" placeholder="Поиск детали / артикула..." 
+                            class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none w-48 sm:w-60">
+                        <select id="table-category-filter" onchange="filterTable()" 
+                            class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none">
+                            <option value="">Все категории</option>
+                            <option value="Двигатель">Двигатель</option>
+                            <option value="Фильтры">Фильтры</option>
+                            <option value="Зажигание">Зажигание</option>
+                            <option value="Охлаждение">Охлаждение</option>
+                            <option value="Тормоза">Тормоза</option>
+                            <option value="Трансмиссия">Трансмиссия</option>
+                        </select>
+                        <button onclick="openSingleRecordModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>Деталь</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table Container -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="min-w-full divide-y divide-slate-800 text-left text-xs">
+                        <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-semibold">
+                            <tr>
+                                <th class="px-4 py-3">ТО</th>
+                                <th class="px-4 py-3">Дата</th>
+                                <th class="px-4 py-3">Пробег / МЧ</th>
+                                <th class="px-4 py-3">Наименование</th>
+                                <th class="px-4 py-3">Бренд & Артикул</th>
+                                <th class="px-4 py-3">Кол-во</th>
+                                <th class="px-4 py-3">Сумма</th>
+                                <th class="px-4 py-3">След. замена</th>
+                                <th class="px-4 py-3">Магазин</th>
+                                <th class="px-4 py-3 text-right">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 bg-slate-900/40 text-slate-200" id="records-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
 
-            <!-- Spending & Mileage Dynamics Chart -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-2">
-                <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
-                    <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
-                    <span>История затрат по этапам ТО</span>
-                </h3>
-                <div class="h-56">
-                    <canvas id="historyChart"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- Service History Table Section -->
-        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <!-- ============================================================= -->
+        <!-- TAB 4: SETTINGS & TRACKER CONFIGURATOR -->
+        <!-- ============================================================= -->
+        <div id="tab-content-settings" class="space-y-6 hidden">
+            <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-400"></i>
-                        <span>Журнал выполненных работ</span>
+                        <i data-lucide="sliders" class="w-5 h-5 text-blue-400"></i>
+                        <span>Настройки регламентов и расходников</span>
                     </h2>
-                    <p class="text-xs text-slate-400">Все замененные детали, артикулы, стоимость и регламенты</p>
+                    <p class="text-xs text-slate-400">Настройка интервалов замены (км и м/ч), порогов предупреждения и спецификаций</p>
                 </div>
-                
-                <!-- Search & Filters -->
-                <div class="flex items-center gap-2 flex-wrap">
-                    <input type="text" id="table-search" oninput="filterTable()" placeholder="Поиск детали / артикула..." 
-                        class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none w-48 sm:w-60">
-                    <select id="table-category-filter" onchange="filterTable()" 
-                        class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none">
-                        <option value="">Все категории</option>
-                        <option value="Двигатель">Двигатель</option>
-                        <option value="Фильтры">Фильтры</option>
-                        <option value="Зажигание">Зажигание</option>
-                        <option value="Охлаждение">Охлаждение</option>
-                        <option value="Тормоза">Тормоза</option>
-                        <option value="Трансмиссия">Трансмиссия</option>
-                    </select>
-                </div>
+                <button onclick="openTrackerModal()" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/20">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>Добавить расходник</span>
+                </button>
             </div>
 
-            <!-- Table Container -->
-            <div class="overflow-x-auto rounded-xl border border-slate-800">
-                <table class="min-w-full divide-y divide-slate-800 text-left text-xs">
-                    <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-semibold">
-                        <tr>
-                            <th class="px-4 py-3">ТО</th>
-                            <th class="px-4 py-3">Дата</th>
-                            <th class="px-4 py-3">Пробег / МЧ</th>
-                            <th class="px-4 py-3">Наименование</th>
-                            <th class="px-4 py-3">Бренд & Артикул</th>
-                            <th class="px-4 py-3">Кол-во</th>
-                            <th class="px-4 py-3">Сумма</th>
-                            <th class="px-4 py-3">След. замена</th>
-                            <th class="px-4 py-3">Магазин</th>
-                            <th class="px-4 py-3 text-right">Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 bg-slate-900/40 text-slate-200" id="records-table-body">
-                        <!-- Populated dynamically -->
-                    </tbody>
-                </table>
+            <!-- Trackers Settings Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="trackers-settings-container">
+                <!-- Populated dynamically -->
             </div>
-        </section>
+        </div>
 
     </main>
 
-    <!-- Modal: Update Mileage & Engine Hours -->
+    <!-- ============================================================= -->
+    <!-- MODAL 1: UPDATE CURRENT MILEAGE & HOURS -->
+    <!-- ============================================================= -->
     <div id="mileage-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
             <div class="flex items-center justify-between">
@@ -275,51 +370,109 @@
         </div>
     </div>
 
-    <!-- Modal: Add / Edit Service Record -->
-    <div id="record-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between">
-                <h3 class="text-base font-bold text-white flex items-center gap-2" id="record-modal-title">
-                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i>
-                    <span>Добавить запись об обслуживании</span>
+    <!-- ============================================================= -->
+    <!-- MODAL 2: TO GROUP EVENT CREATION & EDITING (WITH MULTIPLE PARTS) -->
+    <!-- ============================================================= -->
+    <div id="to-group-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2" id="to-group-modal-title">
+                    <i data-lucide="calendar-check" class="w-5 h-5 text-blue-400"></i>
+                    <span>Добавить / Редактировать событие ТО</span>
                 </h3>
-                <button onclick="closeRecordModal()" class="text-slate-400 hover:text-white">
+                <button onclick="closeTOGroupModal()" class="text-slate-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <form onsubmit="saveRecordForm(event)" class="space-y-4 text-xs">
-                <input type="hidden" id="edit-record-id" value="">
 
-                <div class="grid grid-cols-2 gap-3">
+            <form onsubmit="saveTOGroupForm(event)" class="space-y-5 text-xs">
+                <input type="hidden" id="to-group-original-tag" value="">
+
+                <!-- Event Info Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950/70 p-4 rounded-xl border border-slate-800">
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Метка ТО</label>
-                        <input type="text" id="rec-to-tag" placeholder="ТО-4, Внеплановое..." required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                        <label class="block font-medium text-slate-300 mb-1">Метка ТО (название)</label>
+                        <input type="text" id="tog-tag" placeholder="ТО-4, Замена масла..." required
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold outline-none focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Дата замены</label>
-                        <input type="date" id="rec-date" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                        <label class="block font-medium text-slate-300 mb-1">Дата проведения</label>
+                        <input type="date" id="tog-date" required
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Пробег на момент замены (км)</label>
-                        <input type="number" id="rec-km" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                        <label class="block font-medium text-slate-300 mb-1">Пробег (км)</label>
+                        <input type="number" id="tog-km" required
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold outline-none focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Моточасы (м/ч)</label>
-                        <input type="number" id="rec-hours" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                        <input type="number" id="tog-hours" required
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold outline-none focus:border-blue-500">
                     </div>
+                </div>
+
+                <!-- Parts Section in this TO -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-bold text-slate-200 flex items-center gap-1.5">
+                            <i data-lucide="wrench" class="w-4 h-4 text-blue-400"></i>
+                            <span>Замененные детали и расходники в этом ТО</span>
+                        </h4>
+                        <button type="button" onclick="addPartRowToForm()" class="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-1.5 rounded-lg border border-blue-500/40 text-xs font-semibold flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>Добавить деталь</span>
+                        </button>
+                    </div>
+
+                    <!-- Dynamic Parts List Container -->
+                    <div id="tog-parts-container" class="space-y-3">
+                        <!-- Part rows populated here -->
+                    </div>
+                </div>
+
+                <!-- Footer Summary & Actions -->
+                <div class="flex items-center justify-between pt-4 border-t border-slate-800">
+                    <div class="text-sm font-bold text-slate-300">
+                        Итого по ТО: <span class="text-emerald-400 text-base ml-1" id="tog-modal-total-calc">0 ₽</span>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="closeTOGroupModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30">Сохранить ТО</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 3: TRACKER / CONSUMABLE SETTINGS MODAL -->
+    <!-- ============================================================= -->
+    <div id="tracker-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2" id="tracker-modal-title">
+                    <i data-lucide="sliders" class="w-5 h-5 text-blue-400"></i>
+                    <span>Настройка регламента расходника</span>
+                </h3>
+                <button onclick="closeTrackerModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="saveTrackerForm(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="tr-id" value="">
+
+                <div>
+                    <label class="block font-medium text-slate-300 mb-1">Наименование расходника / узла</label>
+                    <input type="text" id="tr-name" placeholder="Моторное масло 0W-20..." required
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Категория</label>
-                        <select id="rec-category" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                        <select id="tr-category" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
                             <option value="Двигатель">Двигатель</option>
                             <option value="Фильтры">Фильтры</option>
                             <option value="Зажигание">Зажигание</option>
@@ -330,21 +483,142 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Наименование расходника</label>
-                        <input type="text" id="rec-item-name" placeholder="Масло моторное 0W-20..." required
+                        <label class="block font-medium text-slate-300 mb-1">Ключевое слово поиска</label>
+                        <input type="text" id="tr-match" placeholder="масло, фильтр салонный..." required
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Марка / Бренд</label>
-                        <input type="text" id="rec-brand" placeholder="Лукойл, VIC, MANN..."
+                        <label class="block font-medium text-slate-300 mb-1">Регламент интервал (км)</label>
+                        <input type="number" id="tr-interval-km" required placeholder="7500"
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Артикул / Код товара</label>
-                        <input type="text" id="rec-article" placeholder="1012010MK01..."
+                        <label class="block font-medium text-slate-300 mb-1">Регламент интервал (м/ч)</label>
+                        <input type="number" id="tr-interval-hours" placeholder="250 (или 0)"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Предупреждать за (км)</label>
+                        <input type="number" id="tr-warn-km" value="1500" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Предупреждать за (м/ч)</label>
+                        <input type="number" id="tr-warn-hours" value="30"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-300 mb-1">Рекомендуемая спецификация производителя</label>
+                    <input type="text" id="tr-spec" placeholder="SAE 0W-20 SP / C5 (4.2 - 4.5 л)..."
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Бренд по умолчанию</label>
+                        <input type="text" id="tr-brand" placeholder="Лукойл, VIC..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Артикул по умолчанию</label>
+                        <input type="text" id="tr-article" placeholder="1012010MK01..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 pt-1">
+                    <input type="checkbox" id="tr-enabled" checked class="w-4 h-4 rounded text-blue-600 bg-slate-950 border-slate-700 focus:ring-0">
+                    <label for="tr-enabled" class="text-slate-300 font-medium cursor-pointer">Включить отслеживание на главном дашборде</label>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeTrackerModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 4: SINGLE RECORD MODAL (FALLBACK) -->
+    <!-- ============================================================= -->
+    <div id="single-record-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2" id="single-record-modal-title">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i>
+                    <span>Деталь обслуживания</span>
+                </h3>
+                <button onclick="closeSingleRecordModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="saveSingleRecordForm(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="s-rec-id" value="">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Метка ТО</label>
+                        <input type="text" id="s-rec-to-tag" placeholder="ТО-3, Внеплановое..." required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Дата замены</label>
+                        <input type="date" id="s-rec-date" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Пробег (км)</label>
+                        <input type="number" id="s-rec-km" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Моточасы (м/ч)</label>
+                        <input type="number" id="s-rec-hours" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Категория</label>
+                        <select id="s-rec-category" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                            <option value="Двигатель">Двигатель</option>
+                            <option value="Фильтры">Фильтры</option>
+                            <option value="Зажигание">Зажигание</option>
+                            <option value="Охлаждение">Охлаждение</option>
+                            <option value="Тормоза">Тормоза</option>
+                            <option value="Трансмиссия">Трансмиссия</option>
+                            <option value="Прочее">Прочее</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Наименование детали</label>
+                        <input type="text" id="s-rec-name" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Бренд</label>
+                        <input type="text" id="s-rec-brand"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Артикул</label>
+                        <input type="text" id="s-rec-article"
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                 </div>
@@ -352,33 +626,33 @@
                 <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Количество</label>
-                        <input type="number" step="0.1" id="rec-quantity" value="1" required
+                        <input type="number" step="0.1" id="s-rec-qty" value="1" required
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Ед. изм.</label>
-                        <select id="rec-unit" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                        <select id="s-rec-unit" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
                             <option value="шт">шт</option>
                             <option value="л">л</option>
                             <option value="компл">компл</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Цена за ед. / комплект (₽)</label>
-                        <input type="number" id="rec-price" placeholder="3600" required
+                        <label class="block font-medium text-slate-300 mb-1">Цена (₽)</label>
+                        <input type="number" id="s-rec-price" required
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Интервал до сл. замены (км)</label>
-                        <input type="number" id="rec-interval-km" value="7500" required
+                        <label class="block font-medium text-slate-300 mb-1">Интервал (км)</label>
+                        <input type="number" id="s-rec-int-km" value="7500" required
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Интервал до сл. замены (м/ч)</label>
-                        <input type="number" id="rec-interval-hours" value="250"
+                        <label class="block font-medium text-slate-300 mb-1">Интервал (м/ч)</label>
+                        <input type="number" id="s-rec-int-hours" value="250"
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                 </div>
@@ -386,25 +660,25 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Где куплено</label>
-                        <input type="text" id="rec-store" placeholder="Ozon, Дилер, Exist..."
+                        <input type="text" id="s-rec-store"
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Ссылка на товар</label>
-                        <input type="url" id="rec-url" placeholder="https://ozon.ru/..."
+                        <input type="url" id="s-rec-url"
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                 </div>
 
                 <div>
                     <label class="block font-medium text-slate-300 mb-1">Примечание</label>
-                    <input type="text" id="rec-note" value="Плановая замена"
+                    <input type="text" id="s-rec-note" value="Плановая замена"
                         class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
-                    <button type="button" onclick="closeRecordModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30" id="save-record-btn">Сохранить запись</button>
+                    <button type="button" onclick="closeSingleRecordModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30">Сохранить</button>
                 </div>
             </form>
         </div>
@@ -416,7 +690,9 @@
             vehicle: {},
             kpi: {},
             consumables: [],
-            records: []
+            records: [],
+            toGroups: [],
+            trackers: []
         };
         let categoryChart = null;
         let historyChart = null;
@@ -453,24 +729,55 @@
             }
         }
 
+        // Tab Navigation
+        function switchTab(tabId) {
+            ['dashboard', 'to-events', 'all-parts', 'settings'].forEach(t => {
+                const content = document.getElementById(`tab-content-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === tabId) {
+                    content.classList.remove('hidden');
+                    btn.className = "py-2.5 tab-active flex items-center gap-1.5 whitespace-nowrap";
+                } else {
+                    content.classList.add('hidden');
+                    btn.className = "py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap";
+                }
+            });
+            if (tabId === 'dashboard') {
+                setTimeout(renderCharts, 50);
+            }
+            lucide.createIcons();
+        }
+
         async function fetchAll() {
             try {
-                const statusRes = await fetch('/api/status');
+                const [statusRes, recRes, toRes, setRes] = await Promise.all([
+                    fetch('/api/status'),
+                    fetch('/api/records'),
+                    fetch('/api/to-groups'),
+                    fetch('/api/settings')
+                ]);
+
                 const statusData = await statusRes.json();
-                
-                const recRes = await fetch('/api/records');
                 const recData = await recRes.json();
+                const toData = await toRes.json();
+                const setData = await setRes.json();
 
                 appData = {
                     vehicle: statusData.vehicle,
                     kpi: statusData.kpi,
                     consumables: statusData.consumables,
-                    records: recData
+                    records: recData,
+                    toGroups: toData,
+                    trackers: setData.trackers || []
                 };
+
+                document.getElementById('tab-to-count').innerText = appData.toGroups.length;
 
                 renderDashboard();
                 renderConsumables();
+                renderTOGroups();
                 renderTable();
+                renderTrackersSettings();
                 renderCharts();
             } catch (err) {
                 console.error("Fetch error:", err);
@@ -528,7 +835,7 @@
                     <div class="flex items-start justify-between">
                         <div class="flex items-center space-x-3">
                             <div class="p-2.5 rounded-xl bg-slate-800 border border-slate-700/60 ${iconColor}">
-                                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                                <i data-lucide="${item.icon || 'wrench'}" class="w-5 h-5"></i>
                             </div>
                             <div>
                                 <h4 class="font-bold text-white text-sm">${item.item_name}</h4>
@@ -554,7 +861,7 @@
                     <!-- Details -->
                     <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80 text-xs">
                         <div>
-                            <span class="text-slate-400 block text-[11px]">Осталось пробега:</span>
+                            <span class="text-slate-400 block text-[11px]">Осталось ресурса:</span>
                             <span class="font-bold ${item.rem_km <= 1500 ? 'text-yellow-400' : 'text-white'}">
                                 ${item.rem_km.toLocaleString('ru-RU')} км
                             </span>
@@ -565,6 +872,133 @@
                                 ${item.next_km.toLocaleString('ru-RU')} км
                             </span>
                         </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Render Grouped TO Events
+        function renderTOGroups() {
+            const container = document.getElementById('to-groups-container');
+            container.innerHTML = '';
+
+            if (appData.toGroups.length === 0) {
+                container.innerHTML = '<div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">Нет сохраненных событий ТО</div>';
+                return;
+            }
+
+            appData.toGroups.forEach(group => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm';
+                
+                let partsRows = '';
+                group.parts.forEach(p => {
+                    let link = p.store || '-';
+                    if (p.url) link = `<a href="${p.url}" target="_blank" class="text-blue-400 hover:underline inline-flex items-center gap-1">${p.store || 'Ссылка'} <i data-lucide="external-link" class="w-3 h-3"></i></a>`;
+                    
+                    partsRows += `
+                        <tr class="hover:bg-slate-800/40 text-xs">
+                            <td class="px-3 py-2.5 font-medium text-white">${p.item_name}</td>
+                            <td class="px-3 py-2.5 text-slate-400">${p.brand || '-'} <span class="font-mono text-[11px]">${p.article || ''}</span></td>
+                            <td class="px-3 py-2.5 text-slate-300">${p.quantity} ${p.unit || 'шт'}</td>
+                            <td class="px-3 py-2.5 font-bold text-emerald-400">${Number(p.total_price).toLocaleString('ru-RU')} ₽</td>
+                            <td class="px-3 py-2.5 text-slate-400">${p.note || '-'}</td>
+                            <td class="px-3 py-2.5">${link}</td>
+                        </tr>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 bg-blue-600/20 border border-blue-500/40 text-blue-300 font-bold rounded-xl text-sm">
+                                ${group.to_tag}
+                            </span>
+                            <div>
+                                <span class="text-white font-bold text-sm">${Number(group.mileage).toLocaleString('ru-RU')} км</span>
+                                <span class="text-slate-400 text-xs ml-1">• ${group.engine_hours} м/ч</span>
+                                <span class="text-slate-500 text-xs ml-2">${group.date}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <span class="text-[11px] text-slate-400 block">Сумма ТО:</span>
+                                <span class="font-black text-emerald-400 text-base">${Number(group.total_cost).toLocaleString('ru-RU')} ₽</span>
+                            </div>
+                            <div class="flex space-x-1.5">
+                                <button onclick="openTOGroupModal('${group.to_tag}')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Редактировать всё ТО">
+                                    <i data-lucide="edit-3" class="w-4 h-4 text-yellow-400"></i>
+                                </button>
+                                <button onclick="deleteTOGroup('${group.to_tag}')" class="p-2 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition" title="Удалить всё ТО">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parts Sub-table -->
+                    <div class="overflow-x-auto rounded-xl border border-slate-800/60 bg-slate-950/40">
+                        <table class="min-w-full divide-y divide-slate-800/60 text-left">
+                            <thead class="bg-slate-950/70 text-slate-400 text-[11px] uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-3 py-2">Деталь / Расходник</th>
+                                    <th class="px-3 py-2">Бренд & Артикул</th>
+                                    <th class="px-3 py-2">Кол-во</th>
+                                    <th class="px-3 py-2">Сумма</th>
+                                    <th class="px-3 py-2">Примечание</th>
+                                    <th class="px-3 py-2">Магазин</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/40">
+                                ${partsRows}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Render Trackers Settings
+        function renderTrackersSettings() {
+            const container = document.getElementById('trackers-settings-container');
+            container.innerHTML = '';
+
+            appData.trackers.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative hover:border-slate-700 transition';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2.5 rounded-xl bg-slate-800 border border-slate-700/60 text-blue-400">
+                                <i data-lucide="${t.icon || 'wrench'}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-sm">${t.name}</h4>
+                                <span class="text-xs text-slate-400">${t.category}</span>
+                            </div>
+                        </div>
+                        <button onclick="openTrackerModal('${t.id}')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Настроить регламент">
+                            <i data-lucide="settings" class="w-4 h-4 text-blue-400"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-1.5 text-xs border-t border-slate-800 pt-2.5 text-slate-300">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Интервал регламента:</span>
+                            <span class="font-bold text-white">${Number(t.interval_km).toLocaleString('ru-RU')} км ${t.interval_hours ? '/ ' + t.interval_hours + ' м/ч' : ''}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Предупреждение за:</span>
+                            <span class="text-yellow-400 font-medium">${t.warn_km} км / ${t.warn_hours || 0} м/ч</span>
+                        </div>
+                        ${t.spec ? `<div class="text-slate-400 text-[11px] pt-1">Спецификация: <span class="text-slate-200">${t.spec}</span></div>` : ''}
+                        ${t.article ? `<div class="text-slate-400 text-[11px]">Артикул: <span class="text-slate-200 font-mono">${t.article}</span></div>` : ''}
                     </div>
                 `;
                 container.appendChild(card);
@@ -623,7 +1057,7 @@
                     </td>
                     <td class="px-4 py-3">${linkHtml}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <button onclick="openEditModal(${r.id})" class="text-slate-400 hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
+                        <button onclick="openSingleRecordModal(${r.id})" class="text-slate-400 hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
                         <button onclick="deleteRecord(${r.id})" class="text-slate-500 hover:text-rose-400 transition p-1" title="Удалить">
@@ -657,29 +1091,32 @@
             const catValues = Object.values(categorySums);
 
             if (categoryChart) categoryChart.destroy();
-            const ctxCat = document.getElementById('categoryChart').getContext('2d');
-            categoryChart = new Chart(ctxCat, {
-                type: 'doughnut',
-                data: {
-                    labels: catLabels,
-                    datasets: [{
-                        data: catValues,
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
-                        }
+            const canvasCat = document.getElementById('categoryChart');
+            if (canvasCat) {
+                const ctxCat = canvasCat.getContext('2d');
+                categoryChart = new Chart(ctxCat, {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catValues,
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'],
+                            borderWidth: 0
+                        }]
                     },
-                    cutout: '70%'
-                }
-            });
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+                            }
+                        },
+                        cutout: '70%'
+                    }
+                });
+            }
 
             // History by TO Stage
             const toGroups = {};
@@ -689,39 +1126,374 @@
             });
 
             if (historyChart) historyChart.destroy();
-            const ctxHist = document.getElementById('historyChart').getContext('2d');
-            historyChart = new Chart(ctxHist, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(toGroups),
-                    datasets: [{
-                        label: 'Затраты на ТО (₽)',
-                        data: Object.values(toGroups),
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            ticks: { color: textColor },
-                            grid: { color: gridColor }
-                        },
-                        x: {
-                            ticks: { color: textColor },
-                            grid: { display: false }
-                        }
+            const canvasHist = document.getElementById('historyChart');
+            if (canvasHist) {
+                const ctxHist = canvasHist.getContext('2d');
+                historyChart = new Chart(ctxHist, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(toGroups),
+                        datasets: [{
+                            label: 'Затраты на ТО (₽)',
+                            data: Object.values(toGroups),
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 6
+                        }]
                     },
-                    plugins: {
-                        legend: { display: false }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
-        // Mileage Modal
+        // ==========================================
+        // TO GROUP MODAL LOGIC (BATCH EVENT EDITING)
+        // ==========================================
+        let currentEditingParts = [];
+
+        function openTOGroupModal(toTag = null) {
+            const container = document.getElementById('tog-parts-container');
+            container.innerHTML = '';
+            currentEditingParts = [];
+
+            if (toTag) {
+                // Edit existing group
+                const group = appData.toGroups.find(g => g.to_tag === toTag);
+                if (!group) return;
+
+                document.getElementById('to-group-original-tag').value = group.to_tag;
+                document.getElementById('to-group-modal-title').innerHTML = `<i data-lucide="edit-3" class="w-5 h-5 text-yellow-400"></i><span>Редактировать ${group.to_tag}</span>`;
+                document.getElementById('tog-tag').value = group.to_tag;
+                document.getElementById('tog-date').value = group.date;
+                document.getElementById('tog-km').value = group.mileage;
+                document.getElementById('tog-hours').value = group.engine_hours;
+
+                group.parts.forEach(p => {
+                    addPartRowToForm(p);
+                });
+            } else {
+                // New ТО
+                document.getElementById('to-group-original-tag').value = '';
+                document.getElementById('to-group-modal-title').innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i><span>Создать новое ТО</span>`;
+                
+                const nextNum = appData.toGroups.length + 1;
+                document.getElementById('tog-tag').value = `ТО-${nextNum}`;
+                document.getElementById('tog-date').value = new Date().toISOString().split('T')[0];
+                document.getElementById('tog-km').value = appData.kpi.current_km || 25340;
+                document.getElementById('tog-hours').value = appData.kpi.current_hours || 772;
+
+                // Add default starter part (Oil)
+                addPartRowToForm({
+                    category: "Двигатель",
+                    item_name: "Масло моторное",
+                    brand: "Лукойл Genesis ARMORTECH JP 0W-20",
+                    article: "1658134508",
+                    quantity: 4.5,
+                    unit: "л",
+                    price_per_unit: 3600,
+                    interval_km: 7500,
+                    interval_hours: 250,
+                    store: "Ozon",
+                    url: "",
+                    note: "Плановая замена"
+                });
+            }
+
+            calcTOGroupTotal();
+            document.getElementById('to-group-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeTOGroupModal() {
+            document.getElementById('to-group-modal').classList.add('hidden');
+        }
+
+        function addPartRowToForm(data = null) {
+            const container = document.getElementById('tog-parts-container');
+            const rowId = 'part-row-' + Math.random().toString(36).substring(2, 9);
+
+            const p = data || {
+                category: "Фильтры",
+                item_name: "",
+                brand: "",
+                article: "",
+                quantity: 1,
+                unit: "шт",
+                price_per_unit: "",
+                interval_km: 7500,
+                interval_hours: 250,
+                store: "Ozon",
+                url: "",
+                note: "Плановая замена"
+            };
+
+            const div = document.createElement('div');
+            div.id = rowId;
+            div.className = 'bg-slate-950/90 border border-slate-800 p-3.5 rounded-xl space-y-3 relative';
+            div.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-blue-400 flex items-center gap-1">
+                        <i data-lucide="package" class="w-3.5 h-3.5"></i> Деталь
+                    </span>
+                    <button type="button" onclick="removePartRow('${rowId}')" class="text-slate-500 hover:text-rose-400 transition" title="Удалить деталь">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Категория</label>
+                        <select class="part-cat w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                            <option value="Двигатель" ${p.category === 'Двигатель' ? 'selected' : ''}>Двигатель</option>
+                            <option value="Фильтры" ${p.category === 'Фильтры' ? 'selected' : ''}>Фильтры</option>
+                            <option value="Зажигание" ${p.category === 'Зажигание' ? 'selected' : ''}>Зажигание</option>
+                            <option value="Охлаждение" ${p.category === 'Охлаждение' ? 'selected' : ''}>Охлаждение</option>
+                            <option value="Тормоза" ${p.category === 'Тормоза' ? 'selected' : ''}>Тормоза</option>
+                            <option value="Трансмиссия" ${p.category === 'Трансмиссия' ? 'selected' : ''}>Трансмиссия</option>
+                            <option value="Прочее" ${p.category === 'Прочее' ? 'selected' : ''}>Прочее</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Наименование детали</label>
+                        <input type="text" value="${p.item_name}" placeholder="Фильтр масляный..." required
+                            class="part-name w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Бренд / Модель</label>
+                        <input type="text" value="${p.brand || ''}" placeholder="VIC C-933..."
+                            class="part-brand w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Артикул</label>
+                        <input type="text" value="${p.article || ''}" placeholder="16510-61A31"
+                            class="part-article w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Кол-во & Ед.</label>
+                        <div class="flex gap-1">
+                            <input type="number" step="0.1" value="${p.quantity || 1}" oninput="calcTOGroupTotal()" required
+                                class="part-qty w-2/3 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white outline-none">
+                            <select class="part-unit w-1/3 bg-slate-900 border border-slate-700 rounded-lg px-1 text-white outline-none text-[11px]">
+                                <option value="шт" ${p.unit === 'шт' ? 'selected' : ''}>шт</option>
+                                <option value="л" ${p.unit === 'л' ? 'selected' : ''}>л</option>
+                                <option value="компл" ${p.unit === 'компл' ? 'selected' : ''}>к-т</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Цена за ед./компл (₽)</label>
+                        <input type="number" value="${p.price_per_unit || ''}" oninput="calcTOGroupTotal()" placeholder="600" required
+                            class="part-price w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Интервал (км / мч)</label>
+                        <div class="flex gap-1">
+                            <input type="number" value="${p.interval_km || 7500}" placeholder="км" required
+                                class="part-int-km w-1/2 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white outline-none">
+                            <input type="number" value="${p.interval_hours || 250}" placeholder="мч"
+                                class="part-int-h w-1/2 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Магазин</label>
+                        <input type="text" value="${p.store || ''}" placeholder="Ozon, Дилер..."
+                            class="part-store w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Ссылка на товар</label>
+                        <input type="url" value="${p.url || ''}" placeholder="https://ozon.ru/..."
+                            class="part-url w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">Примечание</label>
+                        <input type="text" value="${p.note || 'Плановая замена'}"
+                            class="part-note w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+            calcTOGroupTotal();
+        }
+
+        function removePartRow(rowId) {
+            const el = document.getElementById(rowId);
+            if (el) el.remove();
+            calcTOGroupTotal();
+        }
+
+        function calcTOGroupTotal() {
+            const container = document.getElementById('tog-parts-container');
+            const rows = container.children;
+            let total = 0;
+
+            for (let r of rows) {
+                const qty = parseFloat(r.querySelector('.part-qty').value) || 1;
+                const price = parseFloat(r.querySelector('.part-price').value) || 0;
+                total += (price * qty);
+            }
+
+            document.getElementById('tog-modal-total-calc').innerText = Number(total).toLocaleString('ru-RU') + ' ₽';
+        }
+
+        async function saveTOGroupForm(e) {
+            e.preventDefault();
+            const originalTag = document.getElementById('to-group-original-tag').value;
+            const toTag = document.getElementById('tog-tag').value;
+            const date = document.getElementById('tog-date').value;
+            const mileage = parseInt(document.getElementById('tog-km').value);
+            const engineHours = parseInt(document.getElementById('tog-hours').value);
+
+            const container = document.getElementById('tog-parts-container');
+            const rows = container.children;
+            const parts = [];
+
+            for (let r of rows) {
+                const qty = parseFloat(r.querySelector('.part-qty').value) || 1;
+                const price = parseFloat(r.querySelector('.part-price').value) || 0;
+                parts.push({
+                    category: r.querySelector('.part-cat').value,
+                    item_name: r.querySelector('.part-name').value,
+                    brand: r.querySelector('.part-brand').value,
+                    article: r.querySelector('.part-article').value,
+                    quantity: qty,
+                    unit: r.querySelector('.part-unit').value,
+                    price_per_unit: price,
+                    total_price: price * qty,
+                    interval_km: parseInt(r.querySelector('.part-int-km').value) || 7500,
+                    interval_hours: parseInt(r.querySelector('.part-int-h').value) || 0,
+                    store: r.querySelector('.part-store').value,
+                    url: r.querySelector('.part-url').value,
+                    note: r.querySelector('.part-note').value
+                });
+            }
+
+            if (parts.length === 0) {
+                alert('Добавьте хотя бы одну деталь в ТО!');
+                return;
+            }
+
+            const payload = {
+                original_to_tag: originalTag || null,
+                to_tag: toTag,
+                date: date,
+                mileage: mileage,
+                engine_hours: engineHours,
+                parts: parts
+            };
+
+            await fetch('/api/to-groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            closeTOGroupModal();
+            fetchAll();
+        }
+
+        async function deleteTOGroup(toTag) {
+            if (!confirm(`Вы уверены, что хотите удалить ${toTag} и все детали внутри него?`)) return;
+            await fetch(`/api/to-groups/${encodeURIComponent(toTag)}`, { method: 'DELETE' });
+            fetchAll();
+        }
+
+        // ==========================================
+        // TRACKER SETTINGS MODAL
+        // ==========================================
+        function openTrackerModal(trackerId = null) {
+            if (trackerId) {
+                const t = appData.trackers.find(x => x.id === trackerId);
+                if (!t) return;
+
+                document.getElementById('tracker-modal-title').innerHTML = `<i data-lucide="sliders" class="w-5 h-5 text-yellow-400"></i><span>Настроить ${t.name}</span>`;
+                document.getElementById('tr-id').value = t.id;
+                document.getElementById('tr-name').value = t.name;
+                document.getElementById('tr-category').value = t.category || 'Двигатель';
+                document.getElementById('tr-match').value = t.match;
+                document.getElementById('tr-interval-km').value = t.interval_km;
+                document.getElementById('tr-interval-hours').value = t.interval_hours || 0;
+                document.getElementById('tr-warn-km').value = t.warn_km || 1500;
+                document.getElementById('tr-warn-hours').value = t.warn_hours || 30;
+                document.getElementById('tr-spec').value = t.spec || '';
+                document.getElementById('tr-brand').value = t.brand || '';
+                document.getElementById('tr-article').value = t.article || '';
+                document.getElementById('tr-enabled').checked = t.enabled !== false;
+            } else {
+                document.getElementById('tracker-modal-title').innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i><span>Добавить расходник для мониторинга</span>`;
+                document.getElementById('tr-id').value = '';
+                document.getElementById('tr-name').value = '';
+                document.getElementById('tr-category').value = 'Двигатель';
+                document.getElementById('tr-match').value = '';
+                document.getElementById('tr-interval-km').value = '10000';
+                document.getElementById('tr-interval-hours').value = '0';
+                document.getElementById('tr-warn-km').value = '1500';
+                document.getElementById('tr-warn-hours').value = '30';
+                document.getElementById('tr-spec').value = '';
+                document.getElementById('tr-brand').value = '';
+                document.getElementById('tr-article').value = '';
+                document.getElementById('tr-enabled').checked = true;
+            }
+
+            document.getElementById('tracker-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeTrackerModal() {
+            document.getElementById('tracker-modal').classList.add('hidden');
+        }
+
+        async function saveTrackerForm(e) {
+            e.preventDefault();
+            const payload = {
+                id: document.getElementById('tr-id').value || null,
+                name: document.getElementById('tr-name').value,
+                category: document.getElementById('tr-category').value,
+                match: document.getElementById('tr-match').value,
+                interval_km: parseInt(document.getElementById('tr-interval-km').value),
+                interval_hours: parseInt(document.getElementById('tr-interval-hours').value) || 0,
+                warn_km: parseInt(document.getElementById('tr-warn-km').value) || 1500,
+                warn_hours: parseInt(document.getElementById('tr-warn-hours').value) || 30,
+                spec: document.getElementById('tr-spec').value,
+                brand: document.getElementById('tr-brand').value,
+                article: document.getElementById('tr-article').value,
+                enabled: document.getElementById('tr-enabled').checked
+            };
+
+            await fetch('/api/settings/tracker', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            closeTrackerModal();
+            fetchAll();
+        }
+
+        // ==========================================
+        // MILEAGE MODAL
+        // ==========================================
         function openMileageModal() {
             document.getElementById('input-current-km').value = appData.kpi.current_km || 25340;
             document.getElementById('input-current-hours').value = appData.kpi.current_hours || 772;
@@ -747,98 +1519,87 @@
             fetchAll();
         }
 
-        // Add / Edit Record Modal
-        function openAddModal() {
-            document.getElementById('edit-record-id').value = '';
-            document.getElementById('record-modal-title').innerHTML = '<i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i><span>Добавить запись об обслуживании</span>';
-            document.getElementById('save-record-btn').innerText = 'Сохранить запись';
+        // ==========================================
+        // SINGLE RECORD MODAL
+        // ==========================================
+        function openSingleRecordModal(recordId = null) {
+            if (recordId) {
+                const r = appData.records.find(x => x.id === recordId);
+                if (!r) return;
+                document.getElementById('s-rec-id').value = r.id;
+                document.getElementById('s-rec-to-tag').value = r.to_tag || '';
+                document.getElementById('s-rec-date').value = r.date;
+                document.getElementById('s-rec-km').value = r.mileage;
+                document.getElementById('s-rec-hours').value = r.engine_hours;
+                document.getElementById('s-rec-category').value = r.category;
+                document.getElementById('s-rec-name').value = r.item_name;
+                document.getElementById('s-rec-brand').value = r.brand || '';
+                document.getElementById('s-rec-article').value = r.article || '';
+                document.getElementById('s-rec-qty').value = r.quantity;
+                document.getElementById('s-rec-unit').value = r.unit || 'шт';
+                document.getElementById('s-rec-price').value = r.price_per_unit;
+                document.getElementById('s-rec-int-km').value = r.interval_km;
+                document.getElementById('s-rec-int-hours').value = r.interval_hours;
+                document.getElementById('s-rec-store').value = r.store || '';
+                document.getElementById('s-rec-url').value = r.url || '';
+                document.getElementById('s-rec-note').value = r.note || '';
+            } else {
+                document.getElementById('s-rec-id').value = '';
+                document.getElementById('s-rec-to-tag').value = `ТО-${appData.toGroups.length + 1}`;
+                document.getElementById('s-rec-date').value = new Date().toISOString().split('T')[0];
+                document.getElementById('s-rec-km').value = appData.kpi.current_km || 25340;
+                document.getElementById('s-rec-hours').value = appData.kpi.current_hours || 772;
+                document.getElementById('s-rec-category').value = 'Двигатель';
+                document.getElementById('s-rec-name').value = '';
+                document.getElementById('s-rec-brand').value = '';
+                document.getElementById('s-rec-article').value = '';
+                document.getElementById('s-rec-qty').value = 1;
+                document.getElementById('s-rec-unit').value = 'шт';
+                document.getElementById('s-rec-price').value = '';
+                document.getElementById('s-rec-int-km').value = 7500;
+                document.getElementById('s-rec-int-hours').value = 250;
+                document.getElementById('s-rec-store').value = 'Ozon';
+                document.getElementById('s-rec-url').value = '';
+                document.getElementById('s-rec-note').value = 'Плановая замена';
+            }
 
-            document.getElementById('rec-to-tag').value = '';
-            document.getElementById('rec-date').value = new Date().toISOString().split('T')[0];
-            document.getElementById('rec-km').value = appData.kpi.current_km || 25340;
-            document.getElementById('rec-hours').value = appData.kpi.current_hours || 772;
-            document.getElementById('rec-category').value = 'Двигатель';
-            document.getElementById('rec-item-name').value = '';
-            document.getElementById('rec-brand').value = '';
-            document.getElementById('rec-article').value = '';
-            document.getElementById('rec-quantity').value = '1';
-            document.getElementById('rec-unit').value = 'шт';
-            document.getElementById('rec-price').value = '';
-            document.getElementById('rec-interval-km').value = '7500';
-            document.getElementById('rec-interval-hours').value = '250';
-            document.getElementById('rec-store').value = 'Ozon';
-            document.getElementById('rec-url').value = '';
-            document.getElementById('rec-note').value = 'Плановая замена';
-
-            document.getElementById('record-modal').classList.remove('hidden');
+            document.getElementById('single-record-modal').classList.remove('hidden');
             lucide.createIcons();
         }
 
-        function openEditModal(id) {
-            const record = appData.records.find(r => r.id === id);
-            if (!record) return;
-
-            document.getElementById('edit-record-id').value = record.id;
-            document.getElementById('record-modal-title').innerHTML = '<i data-lucide="edit-3" class="w-5 h-5 text-yellow-400"></i><span>Редактировать запись ТО</span>';
-            document.getElementById('save-record-btn').innerText = 'Сохранить изменения';
-
-            document.getElementById('rec-to-tag').value = record.to_tag || '';
-            document.getElementById('rec-date').value = record.date || '';
-            document.getElementById('rec-km').value = record.mileage || 0;
-            document.getElementById('rec-hours').value = record.engine_hours || 0;
-            document.getElementById('rec-category').value = record.category || 'Двигатель';
-            document.getElementById('rec-item-name').value = record.item_name || '';
-            document.getElementById('rec-brand').value = record.brand || '';
-            document.getElementById('rec-article').value = record.article || '';
-            document.getElementById('rec-quantity').value = record.quantity || 1;
-            document.getElementById('rec-unit').value = record.unit || 'шт';
-            document.getElementById('rec-price').value = record.price_per_unit || '';
-            document.getElementById('rec-interval-km').value = record.interval_km || 7500;
-            document.getElementById('rec-interval-hours').value = record.interval_hours || 250;
-            document.getElementById('rec-store').value = record.store || '';
-            document.getElementById('rec-url').value = record.url || '';
-            document.getElementById('rec-note').value = record.note || '';
-
-            document.getElementById('record-modal').classList.remove('hidden');
-            lucide.createIcons();
+        function closeSingleRecordModal() {
+            document.getElementById('single-record-modal').classList.add('hidden');
         }
 
-        function closeRecordModal() {
-            document.getElementById('record-modal').classList.add('hidden');
-        }
-
-        async function saveRecordForm(e) {
+        async function saveSingleRecordForm(e) {
             e.preventDefault();
-            const editId = document.getElementById('edit-record-id').value;
-
+            const id = document.getElementById('s-rec-id').value;
             const payload = {
-                to_tag: document.getElementById('rec-to-tag').value,
-                date: document.getElementById('rec-date').value,
-                mileage: parseInt(document.getElementById('rec-km').value),
-                engine_hours: parseInt(document.getElementById('rec-hours').value),
-                category: document.getElementById('rec-category').value,
-                item_name: document.getElementById('rec-item-name').value,
-                brand: document.getElementById('rec-brand').value,
-                article: document.getElementById('rec-article').value,
-                quantity: parseFloat(document.getElementById('rec-quantity').value),
-                unit: document.getElementById('rec-unit').value,
-                price_per_unit: parseFloat(document.getElementById('rec-price').value),
-                interval_km: parseInt(document.getElementById('rec-interval-km').value),
-                interval_hours: parseInt(document.getElementById('rec-interval-hours').value),
-                store: document.getElementById('rec-store').value,
-                url: document.getElementById('rec-url').value,
-                note: document.getElementById('rec-note').value
+                to_tag: document.getElementById('s-rec-to-tag').value,
+                date: document.getElementById('s-rec-date').value,
+                mileage: parseInt(document.getElementById('s-rec-km').value),
+                engine_hours: parseInt(document.getElementById('s-rec-hours').value),
+                category: document.getElementById('s-rec-category').value,
+                item_name: document.getElementById('s-rec-name').value,
+                brand: document.getElementById('s-rec-brand').value,
+                article: document.getElementById('s-rec-article').value,
+                quantity: parseFloat(document.getElementById('s-rec-qty').value),
+                unit: document.getElementById('s-rec-unit').value,
+                price_per_unit: parseFloat(document.getElementById('s-rec-price').value),
+                interval_km: parseInt(document.getElementById('s-rec-int-km').value),
+                interval_hours: parseInt(document.getElementById('s-rec-int-hours').value),
+                store: document.getElementById('s-rec-store').value,
+                url: document.getElementById('s-rec-url').value,
+                note: document.getElementById('s-rec-note').value
             };
 
-            if (editId) {
-                // PUT update
-                await fetch(`/api/records/${editId}`, {
+            if (id) {
+                await fetch(`/api/records/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                // POST create
                 await fetch('/api/records', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -846,12 +1607,12 @@
                 });
             }
 
-            closeRecordModal();
+            closeSingleRecordModal();
             fetchAll();
         }
 
         async function deleteRecord(id) {
-            if (!confirm('Вы уверены, что хотите удалить эту запись?')) return;
+            if (!confirm('Вы уверены, что хотите удалить эту деталь?')) return;
             await fetch(`/api/records/${id}`, { method: 'DELETE' });
             fetchAll();
         }

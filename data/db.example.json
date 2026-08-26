@@ -400,21 +400,6 @@
       "brand": "",
       "icon": "cog",
       "enabled": false
-    },
-    {
-      "id": "brake_pads_front",
-      "name": "Передние тормозные колодки",
-      "category": "Тормоза",
-      "match": "колодки",
-      "interval_km": 30000,
-      "interval_hours": 0,
-      "warn_km": 3000,
-      "warn_hours": 0,
-      "spec": "Керамические",
-      "article": "",
-      "brand": "",
-      "icon": "shield",
-      "enabled": true
     }
   ]
 }
