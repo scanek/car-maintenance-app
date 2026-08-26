@@ -1479,12 +1479,14 @@
             });
 
             closeTOGroupModal();
+            fetchVehicles();
             fetchAll();
         }
 
         async function deleteTOGroup(toTag) {
             if (!confirm(`Вы уверены, что хотите удалить ${toTag} и все детали внутри него?`)) return;
             await fetch(`/api/to-groups/${encodeURIComponent(toTag)}`, { method: 'DELETE' });
+            fetchVehicles();
             fetchAll();
         }
 
@@ -1557,6 +1559,7 @@
             });
 
             closeTrackerModal();
+            fetchVehicles();
             fetchAll();
         }
 
@@ -1585,6 +1588,7 @@
             });
 
             closeMileageModal();
+            fetchVehicles();
             fetchAll();
         }
 
@@ -1685,12 +1689,14 @@
             }
 
             closeSingleRecordModal();
+            fetchVehicles();
             fetchAll();
         }
 
         async function deleteRecord(id) {
             if (!confirm('Вы уверены, что хотите удалить эту деталь?')) return;
             await fetch(`/api/records/${id}`, { method: 'DELETE' });
+            fetchVehicles();
             fetchAll();
         }
 
@@ -1866,14 +1872,309 @@
             }
         }
 
+        
+        // ==========================================
+        // GARAGE & VEHICLE MANAGEMENT
+        // ==========================================
+        let garageVehicles = [];
+        let activeVehicle = null;
+
+        async function fetchVehicles() {
+            try {
+                const res = await fetch('/api/vehicles');
+                const data = await res.json();
+                garageVehicles = data.vehicles || [];
+                activeVehicle = data.active_vehicle;
+                updateHeaderVehicleUI();
+            } catch (e) {
+                console.error("Failed to fetch vehicles", e);
+            }
+        }
+
+        function updateHeaderVehicleUI() {
+            if (!activeVehicle) return;
+            const titleEl = document.getElementById('vehicle-title');
+            const plateEl = document.getElementById('vehicle-plate-badge');
+            const engineEl = document.getElementById('vehicle-engine-badge');
+
+            if (titleEl) titleEl.innerText = `${activeVehicle.brand} ${activeVehicle.model}`;
+            if (plateEl) {
+                if (activeVehicle.plate) {
+                    plateEl.innerText = activeVehicle.plate;
+                    plateEl.classList.remove('hidden');
+                } else {
+                    plateEl.classList.add('hidden');
+                }
+            }
+            if (engineEl) {
+                engineEl.innerText = activeVehicle.engine || 'Автомобиль';
+            }
+        }
+
+        function openGarageModal() {
+            requireAuth(() => openGarageModalInternal());
+        }
+
+        async function openGarageModalInternal() {
+            await fetchVehicles();
+            renderGarageList();
+            fillVehicleForm(activeVehicle);
+            document.getElementById('garage-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeGarageModal() {
+            document.getElementById('garage-modal').classList.add('hidden');
+        }
+
+        function renderGarageList() {
+            const listEl = document.getElementById('garage-vehicles-list');
+            listEl.innerHTML = '';
+
+            garageVehicles.forEach(v => {
+                const isActive = activeVehicle && activeVehicle.id === v.id;
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
+                    isActive 
+                    ? 'bg-blue-50/80 dark:bg-blue-900/30 border-blue-500 dark:border-blue-500 shadow-sm' 
+                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-400'
+                }`;
+
+                card.innerHTML = `
+                    <div onclick="switchVehicle('${v.id}')" class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-900 dark:text-white text-xs">${v.brand} ${v.model}</span>
+                            ${isActive ? '<span class="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.2 rounded">АКТИВЕН</span>' : ''}
+                        </div>
+                        <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                            ${v.plate ? v.plate : 'Без госномера'} • ${Number(v.current_km || 0).toLocaleString('ru-RU')} км
+                        </div>
+                    </div>
+                    <button type="button" onclick="fillVehicleFormById('${v.id}')" class="p-1.5 text-slate-400 hover:text-blue-500 transition" title="Редактировать">
+                        <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+                    </button>
+                `;
+                listEl.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        async function switchVehicle(vId) {
+            try {
+                const res = await fetch(`/api/vehicles/${vId}/activate`, { method: 'POST' });
+                if (res.ok) {
+                    await fetchVehicles();
+            fetchAll();
+                    await fetchVehicles();
+                    renderGarageList();
+                    fillVehicleForm(activeVehicle);
+                }
+            } catch (e) {
+                console.error("Failed to activate vehicle", e);
+            }
+        }
+
+        function fillVehicleForm(v) {
+            document.getElementById('vehicle-form-heading').innerText = v ? `Редактировать: ${v.brand} ${v.model}` : "Новый автомобиль";
+            document.getElementById('v-edit-id').value = v ? v.id : '';
+            document.getElementById('v-edit-brand').value = v ? v.brand : '';
+            document.getElementById('v-edit-model').value = v ? v.model : '';
+            document.getElementById('v-edit-plate').value = v ? (v.plate || '') : '';
+            document.getElementById('v-edit-engine').value = v ? (v.engine || '') : '';
+            document.getElementById('v-edit-year').value = v ? (v.year || '') : '';
+            document.getElementById('v-edit-vin').value = v ? (v.vin || '') : '';
+            document.getElementById('v-edit-oil').value = v ? (v.oil_spec || '') : '';
+
+            const delBtn = document.getElementById('v-delete-btn');
+            if (v && garageVehicles.length > 1) {
+                delBtn.classList.remove('hidden');
+            } else {
+                delBtn.classList.add('hidden');
+            }
+        }
+
+        function fillVehicleFormById(vId) {
+            const v = garageVehicles.find(x => x.id === vId);
+            if (v) fillVehicleForm(v);
+        }
+
+        function startNewVehicleForm() {
+            fillVehicleForm(null);
+            document.getElementById('vehicle-form-heading').innerText = "Добавить новый автомобиль в гараж";
+            document.getElementById('v-edit-brand').focus();
+        }
+
+        async function saveVehicleProfileForm(e) {
+            e.preventDefault();
+            const vId = document.getElementById('v-edit-id').value;
+            const payload = {
+                brand: document.getElementById('v-edit-brand').value,
+                model: document.getElementById('v-edit-model').value,
+                plate: document.getElementById('v-edit-plate').value,
+                engine: document.getElementById('v-edit-engine').value,
+                year: parseInt(document.getElementById('v-edit-year').value) || null,
+                vin: document.getElementById('v-edit-vin').value,
+                oil_spec: document.getElementById('v-edit-oil').value,
+                current_km: activeVehicle ? activeVehicle.current_km : 0,
+                current_engine_hours: activeVehicle ? activeVehicle.current_engine_hours : 0
+            };
+
+            try {
+                let res;
+                if (vId) {
+                    res = await fetch(`/api/vehicles/${vId}`, {
+                        method: 'PUT',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/api/vehicles', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (res.ok) {
+                    await fetchVehicles();
+                    await fetchVehicles();
+            fetchAll();
+                    closeGarageModal();
+                } else {
+                    const err = await res.json();
+                    alert("Ошибка: " + (err.detail || "Не удалось сохранить автомобиль"));
+                }
+            } catch (err) {
+                alert("Ошибка сохранения автомобиля");
+            }
+        }
+
+        async function deleteCurrentVehicle() {
+            const vId = document.getElementById('v-edit-id').value;
+            if (!vId) return;
+            if (confirm("Вы уверены, что хотите удалить этот автомобиль и всю его историю ТО из гаража?")) {
+                try {
+                    const res = await fetch(`/api/vehicles/${vId}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
+                    if (res.ok) {
+                        await fetchVehicles();
+                        await fetchVehicles();
+            fetchAll();
+                        closeGarageModal();
+                    }
+                } catch (e) {
+                    alert("Ошибка удаления автомобиля");
+                }
+            }
+        }
+
         // Init on page load
         window.addEventListener('DOMContentLoaded', () => {
             initTheme();
             checkAuthStatus();
+            fetchVehicles();
             fetchAll();
             lucide.createIcons();
         });
     </script>
+
+    
+    <!-- ============================================================= -->
+    <!-- MODAL: GARAGE & VEHICLE MANAGEMENT -->
+    <!-- ============================================================= -->
+    <div id="garage-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="warehouse" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
+                    <span>Мой Гараж и Профиль Автомобиля</span>
+                </h3>
+                <button onclick="closeGarageModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Vehicles List (Garage selector) -->
+            <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Автомобили в гараже:</span>
+                    <button type="button" onclick="startNewVehicleForm()" class="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Добавить авто
+                    </button>
+                </div>
+                <div id="garage-vehicles-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <hr class="border-slate-100 dark:border-slate-800">
+
+            <!-- Active Vehicle Edit Form -->
+            <form onsubmit="saveVehicleProfileForm(event)" class="space-y-3.5 text-xs">
+                <div class="flex items-center justify-between">
+                    <span id="vehicle-form-heading" class="font-bold text-slate-900 dark:text-white text-sm">Параметры автомобиля</span>
+                    <span class="text-[11px] text-slate-400">Требуются права администратора</span>
+                </div>
+                <input type="hidden" id="v-edit-id">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Марка авто</label>
+                        <input type="text" id="v-edit-brand" required placeholder="Например: Changan"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Модель</label>
+                        <input type="text" id="v-edit-model" required placeholder="Например: CS55 Plus"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Госномер / Рег. знак</label>
+                        <input type="text" id="v-edit-plate" placeholder="А 777 АА 777"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono font-bold outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Двигатель / Модификация</label>
+                        <input type="text" id="v-edit-engine" placeholder="1.5T 7DCT 181 л.с."
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Год выпуска</label>
+                        <input type="number" id="v-edit-year" placeholder="2023"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">VIN-номер</label>
+                        <input type="text" id="v-edit-vin" placeholder="XTT..."
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Спецификация масла / Заправочный объем</label>
+                        <input type="text" id="v-edit-oil" placeholder="SAE 0W-20 SP / C5 (4.2 - 4.5 л)"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" id="v-delete-btn" onclick="deleteCurrentVehicle()" class="text-rose-500 hover:text-rose-600 font-medium hidden">
+                        Удалить авто из гаража
+                    </button>
+                    <div class="flex space-x-2 ml-auto">
+                        <button type="button" onclick="closeGarageModal()" class="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Отмена</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-md shadow-blue-500/20">Сохранить</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- ============================================================= -->
     <!-- MODAL: ADMIN PASSWORD LOGIN -->

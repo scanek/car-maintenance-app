@@ -21,11 +21,9 @@ DB_FILE = DATA_DIR / "db.json"
 EXAMPLE_DB_FILE = DATA_DIR / "db.example.json"
 STATIC_DIR = Path(__file__).parent / "static"
 
-# In-memory active session tokens
 ACTIVE_SESSIONS = set()
 
 def get_admin_password():
-    # Priority: env var > db.json > default 'admin'
     env_pwd = os.environ.get("ADMIN_PASSWORD")
     if env_pwd:
         return env_pwd
@@ -57,6 +55,35 @@ def require_admin(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия истекла или недействительна")
     return True
 
+def get_active_vehicle(db):
+    vehicles = db.setdefault("vehicles", [])
+    if not vehicles:
+        default_car = {
+            "id": "car_1",
+            "name": "Changan CS55 Plus",
+            "brand": "Changan",
+            "model": "CS55 Plus",
+            "plate": "А 777 АА 777",
+            "engine": "1.5T 7DCT",
+            "year": 2023,
+            "vin": "",
+            "current_km": 25340,
+            "current_engine_hours": 772,
+            "oil_spec": "SAE 0W-20 SP / C5 (4.2 - 4.5 л)"
+        }
+        vehicles.append(default_car)
+        db["active_vehicle_id"] = "car_1"
+        save_db(db)
+        return default_car
+        
+    active_id = db.get("active_vehicle_id")
+    car = next((v for v in vehicles if v.get("id") == active_id), None)
+    if not car:
+        car = vehicles[0]
+        db["active_vehicle_id"] = car["id"]
+        save_db(db)
+    return car
+
 class LoginRequest(BaseModel):
     password: str
 
@@ -64,13 +91,24 @@ class PasswordChangeRequest(BaseModel):
     old_password: str
     new_password: str
 
-class VehicleUpdate(BaseModel):
+class VehicleModel(BaseModel):
+    id: Optional[str] = None
+    brand: str
+    model: str
+    plate: Optional[str] = ""
+    engine: Optional[str] = ""
+    year: Optional[int] = None
+    vin: Optional[str] = ""
+    current_km: int = 0
+    current_engine_hours: int = 0
+    oil_spec: Optional[str] = ""
+
+class VehicleMileageUpdate(BaseModel):
     current_km: int
     current_engine_hours: int
-    brand: Optional[str] = "Changan"
-    model: Optional[str] = "CS55 Plus"
 
 class MaintenanceRecord(BaseModel):
+    vehicle_id: Optional[str] = None
     to_tag: str
     date: str
     engine_hours: int
@@ -123,6 +161,7 @@ class PartItem(BaseModel):
     url: Optional[str] = ""
 
 class TOGroupPayload(BaseModel):
+    vehicle_id: Optional[str] = None
     original_to_tag: Optional[str] = None
     to_tag: str
     date: str
@@ -169,7 +208,101 @@ def change_password(req: PasswordChangeRequest, auth: bool = Depends(require_adm
     save_db(db)
     return {"status": "success", "message": "Пароль успешно изменен"}
 
-# --- PUBLIC READ ENDPOINTS ---
+# --- VEHICLE / GARAGE ENDPOINTS ---
+@app.get("/api/vehicles")
+def get_vehicles():
+    db = load_db()
+    vehicles = db.setdefault("vehicles", [])
+    active_car = get_active_vehicle(db)
+    return {
+        "active_vehicle_id": active_car["id"],
+        "active_vehicle": active_car,
+        "vehicles": vehicles
+    }
+
+@app.post("/api/vehicles/{vehicle_id}/activate")
+def activate_vehicle(vehicle_id: str):
+    db = load_db()
+    vehicles = db.setdefault("vehicles", [])
+    car = next((v for v in vehicles if v.get("id") == vehicle_id), None)
+    if not car:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    db["active_vehicle_id"] = vehicle_id
+    save_db(db)
+    return {"status": "success", "active_vehicle_id": vehicle_id, "vehicle": car}
+
+@app.post("/api/vehicles")
+def add_vehicle(v: VehicleModel, auth: bool = Depends(require_admin)):
+    db = load_db()
+    vehicles = db.setdefault("vehicles", [])
+    new_id = f"car_{len(vehicles) + 1}_{secrets.token_hex(2)}"
+    
+    new_car = {
+        "id": new_id,
+        "name": f"{v.brand} {v.model}",
+        "brand": v.brand,
+        "model": v.model,
+        "plate": v.plate or "",
+        "engine": v.engine or "",
+        "year": v.year,
+        "vin": v.vin or "",
+        "current_km": v.current_km or 0,
+        "current_engine_hours": v.current_engine_hours or 0,
+        "oil_spec": v.oil_spec or ""
+    }
+    vehicles.append(new_car)
+    db["active_vehicle_id"] = new_id
+    save_db(db)
+    return {"status": "success", "vehicle": new_car}
+
+@app.put("/api/vehicles/{vehicle_id}")
+def update_vehicle(vehicle_id: str, v: VehicleModel, auth: bool = Depends(require_admin)):
+    db = load_db()
+    vehicles = db.setdefault("vehicles", [])
+    idx = next((i for i, car in enumerate(vehicles) if car.get("id") == vehicle_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    
+    vehicles[idx]["brand"] = v.brand
+    vehicles[idx]["model"] = v.model
+    vehicles[idx]["name"] = f"{v.brand} {v.model}"
+    vehicles[idx]["plate"] = v.plate or ""
+    vehicles[idx]["engine"] = v.engine or ""
+    vehicles[idx]["year"] = v.year
+    vehicles[idx]["vin"] = v.vin or ""
+    vehicles[idx]["current_km"] = v.current_km
+    vehicles[idx]["current_engine_hours"] = v.current_engine_hours
+    vehicles[idx]["oil_spec"] = v.oil_spec or ""
+    
+    save_db(db)
+    return {"status": "success", "vehicle": vehicles[idx]}
+
+@app.delete("/api/vehicles/{vehicle_id}")
+def delete_vehicle(vehicle_id: str, auth: bool = Depends(require_admin)):
+    db = load_db()
+    vehicles = db.setdefault("vehicles", [])
+    if len(vehicles) <= 1:
+        raise HTTPException(status_code=400, detail="Нельзя удалить единственный автомобиль в гараже")
+        
+    db["vehicles"] = [v for v in vehicles if v.get("id") != vehicle_id]
+    db["maintenance_records"] = [r for r in db.get("maintenance_records", []) if r.get("vehicle_id") != vehicle_id]
+    
+    if db.get("active_vehicle_id") == vehicle_id:
+        db["active_vehicle_id"] = db["vehicles"][0]["id"]
+        
+    save_db(db)
+    return {"status": "deleted", "active_vehicle_id": db["active_vehicle_id"]}
+
+@app.post("/api/vehicle/mileage")
+def update_mileage(v: VehicleMileageUpdate, auth: bool = Depends(require_admin)):
+    db = load_db()
+    car = get_active_vehicle(db)
+    car["current_km"] = v.current_km
+    car["current_engine_hours"] = v.current_engine_hours
+    save_db(db)
+    return {"status": "success", "vehicle": car}
+
+# --- STATUS & RECORDS ENDPOINTS (SCOPED BY ACTIVE VEHICLE) ---
 @app.get("/")
 def get_index():
     return FileResponse(STATIC_DIR / "index.html")
@@ -177,8 +310,11 @@ def get_index():
 @app.get("/api/status")
 def get_status():
     db = load_db()
-    vehicle = db["vehicle"]
-    records = db.get("maintenance_records", [])
+    vehicle = get_active_vehicle(db)
+    v_id = vehicle["id"]
+    
+    all_records = db.get("maintenance_records", [])
+    records = [r for r in all_records if r.get("vehicle_id", "car_1") == v_id]
     trackers = db.get("trackers", [])
     
     current_km = vehicle.get("current_km", 0)
@@ -291,12 +427,14 @@ def get_status():
 @app.get("/api/records")
 def get_records():
     db = load_db()
-    return db.get("maintenance_records", [])
+    v_id = get_active_vehicle(db)["id"]
+    return [r for r in db.get("maintenance_records", []) if r.get("vehicle_id", "car_1") == v_id]
 
 @app.get("/api/to-groups")
 def get_to_groups():
     db = load_db()
-    records = db.get("maintenance_records", [])
+    v_id = get_active_vehicle(db)["id"]
+    records = [r for r in db.get("maintenance_records", []) if r.get("vehicle_id", "car_1") == v_id]
     
     groups: Dict[str, Any] = {}
     for r in records:
@@ -320,15 +458,19 @@ def get_to_groups():
 @app.get("/api/settings")
 def get_settings():
     db = load_db()
+    vehicle = get_active_vehicle(db)
     return {
-        "vehicle": db.get("vehicle", {}),
+        "vehicle": vehicle,
         "trackers": db.get("trackers", [])
     }
 
-# --- PROTECTED WRITE ENDPOINTS (REQUIRE ADMIN SESSION) ---
+# --- WRITE ENDPOINTS (PROTECTED) ---
 @app.post("/api/records")
 def add_record(record: MaintenanceRecord, auth: bool = Depends(require_admin)):
     db = load_db()
+    car = get_active_vehicle(db)
+    v_id = car["id"]
+    
     records = db.setdefault("maintenance_records", [])
     new_id = (max([r["id"] for r in records]) + 1) if records else 1
     
@@ -338,6 +480,7 @@ def add_record(record: MaintenanceRecord, auth: bool = Depends(require_admin)):
     
     new_rec = {
         "id": new_id,
+        "vehicle_id": v_id,
         "to_tag": record.to_tag,
         "date": record.date,
         "engine_hours": record.engine_hours,
@@ -362,10 +505,10 @@ def add_record(record: MaintenanceRecord, auth: bool = Depends(require_admin)):
     
     records.append(new_rec)
     
-    if record.mileage > db["vehicle"].get("current_km", 0):
-        db["vehicle"]["current_km"] = record.mileage
-    if record.engine_hours > db["vehicle"].get("current_engine_hours", 0):
-        db["vehicle"]["current_engine_hours"] = record.engine_hours
+    if record.mileage > car.get("current_km", 0):
+        car["current_km"] = record.mileage
+    if record.engine_hours > car.get("current_engine_hours", 0):
+        car["current_engine_hours"] = record.engine_hours
         
     save_db(db)
     return {"status": "success", "record": new_rec}
@@ -373,6 +516,7 @@ def add_record(record: MaintenanceRecord, auth: bool = Depends(require_admin)):
 @app.put("/api/records/{record_id}")
 def update_record(record_id: int, record: MaintenanceRecord, auth: bool = Depends(require_admin)):
     db = load_db()
+    car = get_active_vehicle(db)
     records = db.get("maintenance_records", [])
     idx = next((i for i, r in enumerate(records) if r["id"] == record_id), None)
     if idx is None:
@@ -384,6 +528,7 @@ def update_record(record_id: int, record: MaintenanceRecord, auth: bool = Depend
     
     updated_rec = {
         "id": record_id,
+        "vehicle_id": records[idx].get("vehicle_id", car["id"]),
         "to_tag": record.to_tag,
         "date": record.date,
         "engine_hours": record.engine_hours,
@@ -421,10 +566,13 @@ def delete_record(record_id: int, auth: bool = Depends(require_admin)):
 @app.post("/api/to-groups")
 def save_to_group(payload: TOGroupPayload, auth: bool = Depends(require_admin)):
     db = load_db()
+    car = get_active_vehicle(db)
+    v_id = car["id"]
+    
     records = db.setdefault("maintenance_records", [])
     
     if payload.original_to_tag:
-        db["maintenance_records"] = [r for r in records if r.get("to_tag") != payload.original_to_tag]
+        db["maintenance_records"] = [r for r in records if not (r.get("vehicle_id", "car_1") == v_id and r.get("to_tag") == payload.original_to_tag)]
         records = db["maintenance_records"]
         
     current_max_id = max([r["id"] for r in records]) if records else 0
@@ -437,6 +585,7 @@ def save_to_group(payload: TOGroupPayload, auth: bool = Depends(require_admin)):
         
         new_item = {
             "id": current_max_id,
+            "vehicle_id": v_id,
             "to_tag": payload.to_tag,
             "date": payload.date,
             "engine_hours": payload.engine_hours,
@@ -460,10 +609,10 @@ def save_to_group(payload: TOGroupPayload, auth: bool = Depends(require_admin)):
         }
         records.append(new_item)
         
-    if payload.mileage > db["vehicle"].get("current_km", 0):
-        db["vehicle"]["current_km"] = payload.mileage
-    if payload.engine_hours > db["vehicle"].get("current_engine_hours", 0):
-        db["vehicle"]["current_engine_hours"] = payload.engine_hours
+    if payload.mileage > car.get("current_km", 0):
+        car["current_km"] = payload.mileage
+    if payload.engine_hours > car.get("current_engine_hours", 0):
+        car["current_engine_hours"] = payload.engine_hours
         
     save_db(db)
     return {"status": "success", "to_tag": payload.to_tag, "parts_added": len(payload.parts)}
@@ -471,8 +620,9 @@ def save_to_group(payload: TOGroupPayload, auth: bool = Depends(require_admin)):
 @app.delete("/api/to-groups/{to_tag}")
 def delete_to_group(to_tag: str, auth: bool = Depends(require_admin)):
     db = load_db()
+    v_id = get_active_vehicle(db)["id"]
     records = db.get("maintenance_records", [])
-    db["maintenance_records"] = [r for r in records if r.get("to_tag") != to_tag]
+    db["maintenance_records"] = [r for r in records if not (r.get("vehicle_id", "car_1") == v_id and r.get("to_tag") == to_tag)]
     save_db(db)
     return {"status": "deleted", "to_tag": to_tag}
 
@@ -516,23 +666,13 @@ def delete_tracker(tracker_id: str, auth: bool = Depends(require_admin)):
     save_db(db)
     return {"status": "deleted", "id": tracker_id}
 
-@app.post("/api/vehicle")
-def update_vehicle(v: VehicleUpdate, auth: bool = Depends(require_admin)):
-    db = load_db()
-    db["vehicle"]["current_km"] = v.current_km
-    db["vehicle"]["current_engine_hours"] = v.current_engine_hours
-    if v.brand:
-        db["vehicle"]["brand"] = v.brand
-    if v.model:
-        db["vehicle"]["model"] = v.model
-    save_db(db)
-    return {"status": "success", "vehicle": db["vehicle"]}
-
 @app.get("/api/export-excel")
 def export_excel():
     db = load_db()
-    vehicle = db.get("vehicle", {})
-    records = db.get("maintenance_records", [])
+    vehicle = get_active_vehicle(db)
+    v_id = vehicle["id"]
+    all_records = db.get("maintenance_records", [])
+    records = [r for r in all_records if r.get("vehicle_id", "car_1") == v_id]
     trackers = db.get("trackers", [])
     
     wb = openpyxl.Workbook()
@@ -562,7 +702,7 @@ def export_excel():
     ws_dash.views.sheetView[0].showGridLines = True
     ws_dash["B2"] = "УЧЕТ И СТАТУС ОБСЛУЖИВАНИЯ АВТОМОБИЛЯ"
     ws_dash["B2"].font = Font(name="Segoe UI", size=15, bold=True, color="0F172A")
-    ws_dash["B3"] = f"Автомобиль: {vehicle.get('brand', 'Changan')} {vehicle.get('model', 'CS55 Plus')}"
+    ws_dash["B3"] = f"Автомобиль: {vehicle.get('brand', '')} {vehicle.get('model', '')} | Госномер: {vehicle.get('plate', '-')}"
     ws_dash["B3"].font = Font(name="Segoe UI", size=10, italic=True, color="64748B")
     
     ws_dash["B5"] = "Текущий пробег (км):"
@@ -657,10 +797,12 @@ def export_excel():
     temp_file.close()
     wb.save(temp_file.name)
     
+    filename = f"Учет_обслуживания_{vehicle.get('brand', 'авто')}_{vehicle.get('model', '')}.xlsx"
+    
     return FileResponse(
         temp_file.name,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="Учет_обслуживания_авто.xlsx"
+        filename=filename
     )
 
 @app.get("/api/export-json")
