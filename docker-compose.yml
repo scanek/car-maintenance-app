@@ -6,7 +6,7 @@ services:
     container_name: changan-maintenance-dashboard
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${PORT:-9595}:8080"
     volumes:
       - ./data:/app/data
     environment:
