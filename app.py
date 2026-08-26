@@ -359,10 +359,14 @@ def get_status():
             next_km = latest.get("next_km", last_km + rec_interval_km)
             next_h = latest.get("next_hours", last_h + rec_interval_h if rec_interval_h > 0 else 0)
             
-            rem_km = next_km - current_km
-            rem_h = (next_h - current_hours) if next_h > 0 else None
+            # Effective current mileage for this consumable cannot be less than replacement point
+            eff_current_km = max(current_km, last_km)
+            eff_current_h = max(current_hours, last_h)
             
-            used_km = current_km - last_km
+            rem_km = next_km - eff_current_km
+            rem_h = (next_h - eff_current_h) if next_h > 0 else None
+            
+            used_km = eff_current_km - last_km
             wear_ratio = max(0.0, min(1.0, used_km / rec_interval_km)) if rec_interval_km > 0 else 0.0
             wear_percent = round(wear_ratio * 100, 1)
             

@@ -415,13 +415,21 @@
             </div>
             <form onsubmit="saveMileage(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Текущий пробег (км)</label>
-                    <input type="number" id="input-current-km" required
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Полный пробег по одометру (км)</label>
+                        <span id="last-to-km-hint" class="text-[11px] text-blue-600 dark:text-blue-400 font-medium"></span>
+                    </div>
+                    <input type="number" id="input-current-km" oninput="checkMileageInputHint()" required placeholder="Например: 28000"
                         class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-slate-900 dark:text-white font-semibold text-lg focus:border-blue-500 outline-none">
+                    <div id="mileage-smart-hint" class="hidden mt-2 p-2.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-700/60 rounded-lg text-xs text-amber-800 dark:text-amber-300">
+                    </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Текущие моточасы (м/ч)</label>
-                    <input type="number" id="input-current-hours" required
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Текущие моточасы (м/ч)</label>
+                        <span id="last-to-hours-hint" class="text-[11px] text-blue-600 dark:text-blue-400 font-medium"></span>
+                    </div>
+                    <input type="number" id="input-current-hours" required placeholder="Например: 850"
                         class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-slate-900 dark:text-white font-semibold text-lg focus:border-blue-500 outline-none">
                 </div>
                 <div class="flex justify-end space-x-3 pt-2">
@@ -934,15 +942,15 @@
                     <!-- Details -->
                     <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
                         <div>
-                            <span class="text-slate-400 dark:text-slate-400 block text-[11px]">Осталось ресурса:</span>
+                            <span class="text-slate-400 dark:text-slate-400 block text-[11px]">Осталось до замены:</span>
                             <span class="font-bold ${item.rem_km <= 1500 ? 'text-amber-600 dark:text-yellow-400' : 'text-slate-900 dark:text-white'}">
-                                ${item.rem_km.toLocaleString('ru-RU')} км
+                                ${item.rem_km.toLocaleString('ru-RU')} км ${item.rem_hours !== null ? '(' + item.rem_hours + ' м/ч)' : ''}
                             </span>
                         </div>
                         <div>
-                            <span class="text-slate-400 dark:text-slate-400 block text-[11px]">Следующая замена:</span>
+                            <span class="text-slate-400 dark:text-slate-400 block text-[11px]">Замена на одометре:</span>
                             <span class="font-medium text-slate-700 dark:text-slate-300">
-                                ${item.next_km.toLocaleString('ru-RU')} км
+                                ${item.next_km.toLocaleString('ru-RU')} км ${item.last_km > 0 ? '<span class="text-[10px] text-slate-400">(ТО ' + Number(item.last_km).toLocaleString('ru-RU') + ')</span>' : ''}
                             </span>
                         </div>
                     </div>
@@ -1584,9 +1592,42 @@
         // MILEAGE MODAL
         // ==========================================
         function openMileageModalInternal() {
-            document.getElementById('input-current-km').value = appData.kpi.current_km || 25340;
-            document.getElementById('input-current-hours').value = appData.kpi.current_hours || 772;
+            const lastKm = appData.records.length > 0 ? Math.max(...appData.records.map(r => r.mileage)) : 0;
+            const lastH = appData.records.length > 0 ? Math.max(...appData.records.map(r => r.engine_hours)) : 0;
+            
+            document.getElementById('input-current-km').value = appData.kpi.current_km || lastKm || 25340;
+            document.getElementById('input-current-hours').value = appData.kpi.current_hours || lastH || 772;
+            
+            const kmHint = document.getElementById('last-to-km-hint');
+            const hHint = document.getElementById('last-to-hours-hint');
+            if (kmHint && lastKm > 0) kmHint.innerText = `ТО: ${Number(lastKm).toLocaleString('ru-RU')} км`;
+            if (hHint && lastH > 0) hHint.innerText = `ТО: ${lastH} м/ч`;
+
+            checkMileageInputHint();
             document.getElementById('mileage-modal').classList.remove('hidden');
+        }
+
+        function checkMileageInputHint() {
+            const inputKm = parseInt(document.getElementById('input-current-km').value) || 0;
+            const lastKm = appData.records.length > 0 ? Math.max(...appData.records.map(r => r.mileage)) : 0;
+            const hintBox = document.getElementById('mileage-smart-hint');
+
+            if (lastKm > 0 && inputKm > 0 && inputKm < lastKm) {
+                const combined = lastKm + inputKm;
+                hintBox.innerHTML = `
+                    <div class="font-semibold flex items-center gap-1 mb-1">
+                        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-500"></i> Внимание: значение меньше пробега ТО (${Number(lastKm).toLocaleString('ru-RU')} км)
+                    </div>
+                    <p class="text-[11px]">Если вы проехали <b>${Number(inputKm).toLocaleString('ru-RU')} км после ТО</b>, то общий пробег авто равен <b>${Number(combined).toLocaleString('ru-RU')} км</b>.</p>
+                    <button type="button" onclick="document.getElementById('input-current-km').value = ${combined}; checkMileageInputHint();" class="mt-1.5 text-[11px] bg-amber-200 dark:bg-amber-900/60 hover:bg-amber-300 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-100 font-bold px-2 py-0.5 rounded transition">
+                        Подставить ${Number(combined).toLocaleString('ru-RU')} км
+                    </button>
+                `;
+                hintBox.classList.remove('hidden');
+                lucide.createIcons();
+            } else {
+                hintBox.classList.add('hidden');
+            }
         }
 
         function closeMileageModal() {
