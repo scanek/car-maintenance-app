@@ -20,15 +20,15 @@
       "article": "376802873",
       "quantity": 4.2,
       "unit": "л",
-      "price_per_unit": 4204,
-      "total_price": 4204,
+      "price_per_unit": 4204.0,
+      "total_price": 17656.8,
       "interval_km": 9000,
       "interval_hours": 250,
       "next_km": 27378,
       "next_hours": 851,
       "note": "Плановая замена",
       "store": "Ozon",
-      "url": "https://www.ozon.ru/product/zic-zero-20-0w-20-maslo-motornoe-sinteticheskoe-4-l-376802873"
+      "url": ""
     },
     {
       "id": 2,

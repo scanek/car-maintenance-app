@@ -1,5 +1,6 @@
 import os
 import json
+import tempfile
 from pathlib import Path
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
@@ -68,8 +69,6 @@ def get_status():
     cost_per_km = round(total_spent / current_km, 2) if current_km > 0 else 0
     avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
     
-    # Calculate status for each tracked consumable
-    # Group by item_name or track canonical items
     tracked_items = [
         {"name": "Моторное масло (0W-20)", "match": "масло", "default_km": 7500, "default_h": 250, "icon": "droplet"},
         {"name": "Масляный фильтр", "match": "фильтр масляный", "default_km": 7500, "default_h": 250, "icon": "disc"},
@@ -83,7 +82,6 @@ def get_status():
     consumables_status = []
     
     for tracker in tracked_items:
-        # Find latest replacement
         matching = [r for r in records if tracker["match"] in r["item_name"].lower()]
         matching.sort(key=lambda x: (x["mileage"], x["date"]))
         latest = matching[-1] if matching else None
@@ -187,7 +185,6 @@ def add_record(record: MaintenanceRecord):
     
     records.append(new_rec)
     
-    # Also update current vehicle mileage if higher
     if record.mileage > db["vehicle"].get("current_km", 0):
         db["vehicle"]["current_km"] = record.mileage
     if record.engine_hours > db["vehicle"].get("current_engine_hours", 0):
@@ -195,6 +192,45 @@ def add_record(record: MaintenanceRecord):
         
     save_db(db)
     return {"status": "success", "record": new_rec}
+
+@app.put("/api/records/{record_id}")
+def update_record(record_id: int, record: MaintenanceRecord):
+    db = load_db()
+    records = db["maintenance_records"]
+    idx = next((i for i, r in enumerate(records) if r["id"] == record_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    
+    total_price = record.total_price if record.total_price is not None else (record.price_per_unit * record.quantity)
+    next_km = record.mileage + record.interval_km
+    next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
+    
+    updated_rec = {
+        "id": record_id,
+        "to_tag": record.to_tag,
+        "date": record.date,
+        "engine_hours": record.engine_hours,
+        "mileage": record.mileage,
+        "category": record.category,
+        "item_name": record.item_name,
+        "brand": record.brand or "",
+        "article": record.article or "",
+        "quantity": record.quantity,
+        "unit": record.unit or "шт",
+        "price_per_unit": record.price_per_unit,
+        "total_price": total_price,
+        "interval_km": record.interval_km,
+        "interval_hours": record.interval_hours,
+        "next_km": next_km,
+        "next_hours": next_hours,
+        "note": record.note or "",
+        "store": record.store or "",
+        "url": record.url or ""
+    }
+    
+    records[idx] = updated_rec
+    save_db(db)
+    return {"status": "success", "record": updated_rec}
 
 @app.delete("/api/records/{record_id}")
 def delete_record(record_id: int):
@@ -220,6 +256,127 @@ def update_vehicle(v: VehicleUpdate):
 def get_reference():
     db = load_db()
     return db.get("reference_intervals", [])
+
+@app.get("/api/export-excel")
+def export_excel():
+    db = load_db()
+    vehicle = db.get("vehicle", {})
+    records = db.get("maintenance_records", [])
+    references = db.get("reference_intervals", [])
+    
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    
+    NAVY_HEADER = "1E293B"
+    WHITE = "FFFFFF"
+    BORDER_COLOR = "CBD5E1"
+    
+    thin_border = Border(
+        left=Side(style='thin', color=BORDER_COLOR),
+        right=Side(style='thin', color=BORDER_COLOR),
+        top=Side(style='thin', color=BORDER_COLOR),
+        bottom=Side(style='thin', color=BORDER_COLOR)
+    )
+    thick_bottom = Border(
+        left=Side(style='thin', color=BORDER_COLOR),
+        right=Side(style='thin', color=BORDER_COLOR),
+        top=Side(style='thin', color=BORDER_COLOR),
+        bottom=Side(style='medium', color="2563EB")
+    )
+    header_font = Font(name="Segoe UI", size=11, bold=True, color=WHITE)
+    header_fill = PatternFill(start_color=NAVY_HEADER, end_color=NAVY_HEADER, fill_type="solid")
+    
+    # Sheet 1: Dashboard
+    ws_dash = wb.create_sheet(title="Дашборд & Статус")
+    ws_dash.views.sheetView[0].showGridLines = True
+    ws_dash["B2"] = "УЧЕТ И СТАТУС ОБСЛУЖИВАНИЯ АВТОМОБИЛЯ"
+    ws_dash["B2"].font = Font(name="Segoe UI", size=15, bold=True, color="0F172A")
+    ws_dash["B3"] = f"Автомобиль: {vehicle.get('brand', 'Changan')} {vehicle.get('model', 'CS55 Plus')}"
+    ws_dash["B3"].font = Font(name="Segoe UI", size=10, italic=True, color="64748B")
+    
+    ws_dash["B5"] = "Текущий пробег (км):"
+    ws_dash["B5"].font = Font(name="Segoe UI", size=11, bold=True)
+    ws_dash["C5"] = vehicle.get("current_km", 0)
+    ws_dash["C5"].number_format = '#,##0 "км"'
+    ws_dash["C5"].font = Font(name="Segoe UI", size=12, bold=True)
+    ws_dash["C5"].fill = PatternFill(start_color="FEF08A", end_color="FEF08A", fill_type="solid")
+    ws_dash["C5"].border = thin_border
+    
+    ws_dash["D5"] = "Текущие моточасы (м/ч):"
+    ws_dash["D5"].font = Font(name="Segoe UI", size=11, bold=True)
+    ws_dash["E5"] = vehicle.get("current_engine_hours", 0)
+    ws_dash["E5"].number_format = '#,##0 "м/ч"'
+    ws_dash["E5"].font = Font(name="Segoe UI", size=12, bold=True)
+    ws_dash["E5"].fill = PatternFill(start_color="FEF08A", end_color="FEF08A", fill_type="solid")
+    ws_dash["E5"].border = thin_border
+    
+    # Sheet 2: Log
+    ws_log = wb.create_sheet(title="Журнал обслуживания")
+    ws_log.views.sheetView[0].showGridLines = True
+    log_headers = [
+        "ТО", "№", "Дата", "Моточасы (м/ч)", "Пробег (км)", "Категория", "Наименование расходника",
+        "Марка / Модель", "Артикул", "Кол-во", "Ед.", "Цена за ед.", "Сумма (₽)",
+        "Интервал (км)", "Интервал (м/ч)", "След. замена (км)", "След. замена (м/ч)", "Примечание", "Где куплено", "Ссылка"
+    ]
+    for c_idx, title in enumerate(log_headers, start=1):
+        cell = ws_log.cell(row=2, column=c_idx, value=title)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thick_bottom
+        
+    for r_idx, r in enumerate(records, start=3):
+        ws_log.cell(row=r_idx, column=1, value=r.get("to_tag", ""))
+        ws_log.cell(row=r_idx, column=2, value=r_idx-2)
+        ws_log.cell(row=r_idx, column=3, value=r.get("date", ""))
+        ws_log.cell(row=r_idx, column=4, value=r.get("engine_hours", 0))
+        ws_log.cell(row=r_idx, column=5, value=r.get("mileage", 0))
+        ws_log.cell(row=r_idx, column=6, value=r.get("category", ""))
+        ws_log.cell(row=r_idx, column=7, value=r.get("item_name", ""))
+        ws_log.cell(row=r_idx, column=8, value=r.get("brand", ""))
+        ws_log.cell(row=r_idx, column=9, value=r.get("article", ""))
+        ws_log.cell(row=r_idx, column=10, value=r.get("quantity", 1))
+        ws_log.cell(row=r_idx, column=11, value=r.get("unit", "шт"))
+        ws_log.cell(row=r_idx, column=12, value=r.get("price_per_unit", 0))
+        ws_log.cell(row=r_idx, column=13, value=r.get("total_price", 0))
+        ws_log.cell(row=r_idx, column=14, value=r.get("interval_km", 0))
+        ws_log.cell(row=r_idx, column=15, value=r.get("interval_hours", 0))
+        ws_log.cell(row=r_idx, column=16, value=r.get("next_km", 0))
+        ws_log.cell(row=r_idx, column=17, value=r.get("next_hours", 0))
+        ws_log.cell(row=r_idx, column=18, value=r.get("note", ""))
+        ws_log.cell(row=r_idx, column=19, value=r.get("store", ""))
+        ws_log.cell(row=r_idx, column=20, value=r.get("url", ""))
+        
+        for c in range(1, 21):
+            cell = ws_log.cell(row=r_idx, column=c)
+            cell.border = thin_border
+            if c in [1, 2, 3, 4, 5, 6, 10, 11, 14, 15, 16, 17, 19]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Auto column width
+    for ws in [ws_dash, ws_log]:
+        for col in ws.columns:
+            col_letter = get_column_letter(col[0].column)
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+            
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    temp_file.close()
+    wb.save(temp_file.name)
+    
+    return FileResponse(
+        temp_file.name,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="Учет_обслуживания_авто.xlsx"
+    )
+
+@app.get("/api/export-json")
+def export_json():
+    db = load_db()
+    return JSONResponse(
+        content=db,
+        headers={"Content-Disposition": "attachment; filename=maintenance_backup.json"}
+    )
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

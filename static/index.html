@@ -22,10 +22,7 @@
                             500: '#3b82f6',
                             600: '#2563eb',
                             700: '#1d4ed8',
-                        },
-                        darkBg: '#0f172a',
-                        cardBg: '#1e293b',
-                        borderBg: '#334155'
+                        }
                     }
                 }
             }
@@ -34,41 +31,57 @@
     <style>
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         .gauge-bar {
             transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .modal-backdrop {
-            background: rgba(15, 23, 42, 0.75);
+            background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(4px);
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
 
     <!-- Top Navigation Header -->
-    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <header class="border-b border-slate-800 dark:border-slate-800 bg-slate-900/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div class="bg-blue-600/20 text-blue-400 p-2 rounded-xl border border-blue-500/30">
                     <i data-lucide="car" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-white flex items-center gap-2">
+                    <h1 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span id="vehicle-title">Changan CS55 Plus</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50">1.5T 7DCT</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-300 dark:border-blue-700/50">1.5T 7DCT</span>
                     </h1>
-                    <p class="text-xs text-slate-400">Система мониторинга износа и учета ТО</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Система мониторинга износа и учета ТО</p>
                 </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="flex items-center space-x-3">
-                <button onclick="openMileageModal()" class="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition text-sm">
-                    <i data-lucide="gauge" class="w-4 h-4 text-yellow-400"></i>
-                    <span>Обновить пробег</span>
+            <!-- Header Actions -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Theme Toggle Button -->
+                <button onclick="toggleTheme()" id="theme-toggle-btn" class="p-2 rounded-xl bg-slate-800 dark:bg-slate-800 text-slate-300 dark:text-slate-300 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 transition" title="Переключить тему">
+                    <i data-lucide="sun" id="theme-icon-sun" class="w-4 h-4 hidden"></i>
+                    <i data-lucide="moon" id="theme-icon-moon" class="w-4 h-4"></i>
                 </button>
-                <button onclick="openAddModal()" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg shadow-lg shadow-blue-600/20 font-medium transition text-sm">
+
+                <!-- Export Excel Button -->
+                <a href="/api/export-excel" class="flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600/20 dark:hover:bg-emerald-600/30 text-emerald-100 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-600 dark:border-emerald-500/40 transition text-xs font-semibold" title="Скачать Excel-файл">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Скачать Excel</span>
+                </a>
+
+                <!-- Quick Update Mileage -->
+                <button onclick="openMileageModal()" class="flex items-center space-x-1.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 dark:border-slate-700 transition text-xs font-medium">
+                    <i data-lucide="gauge" class="w-4 h-4 text-yellow-400"></i>
+                    <span class="hidden sm:inline">Пробег</span>
+                </button>
+
+                <!-- Add Record -->
+                <button onclick="openAddModal()" class="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg shadow-lg shadow-blue-600/20 font-semibold transition text-xs">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
                     <span>Добавить ТО</span>
                 </button>
@@ -131,7 +144,7 @@
 
         <!-- Consumables Wear Status Section (Traffic Light Gauges) -->
         <section class="space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap gap-2">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
                         <i data-lucide="gauge" class="w-5 h-5 text-blue-400"></i>
@@ -152,7 +165,7 @@
             </div>
         </section>
 
-        <!-- Analytics Charts & Specs Section -->
+        <!-- Analytics Charts Section -->
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Spend by Category Chart -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-1">
@@ -189,7 +202,7 @@
                 </div>
                 
                 <!-- Search & Filters -->
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     <input type="text" id="table-search" oninput="filterTable()" placeholder="Поиск детали / артикула..." 
                         class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none w-48 sm:w-60">
                     <select id="table-category-filter" onchange="filterTable()" 
@@ -199,6 +212,8 @@
                         <option value="Фильтры">Фильтры</option>
                         <option value="Зажигание">Зажигание</option>
                         <option value="Охлаждение">Охлаждение</option>
+                        <option value="Тормоза">Тормоза</option>
+                        <option value="Трансмиссия">Трансмиссия</option>
                     </select>
                 </div>
             </div>
@@ -260,19 +275,21 @@
         </div>
     </div>
 
-    <!-- Modal: Add New Service Record -->
-    <div id="add-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+    <!-- Modal: Add / Edit Service Record -->
+    <div id="record-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between">
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <h3 class="text-base font-bold text-white flex items-center gap-2" id="record-modal-title">
                     <i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i>
                     <span>Добавить запись об обслуживании</span>
                 </h3>
-                <button onclick="closeAddModal()" class="text-slate-400 hover:text-white">
+                <button onclick="closeRecordModal()" class="text-slate-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <form onsubmit="saveNewRecord(event)" class="space-y-4 text-xs">
+            <form onsubmit="saveRecordForm(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="edit-record-id" value="">
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Метка ТО</label>
@@ -347,7 +364,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-300 mb-1">Цена (₽)</label>
+                        <label class="block font-medium text-slate-300 mb-1">Цена за ед. / комплект (₽)</label>
                         <input type="number" id="rec-price" placeholder="3600" required
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
@@ -369,7 +386,7 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-medium text-slate-300 mb-1">Где куплено</label>
-                        <input type="text" id="rec-store" placeholder="Ozon, Дилер..."
+                        <input type="text" id="rec-store" placeholder="Ozon, Дилер, Exist..."
                             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
                     </div>
                     <div>
@@ -386,8 +403,8 @@
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
-                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30">Сохранить запись</button>
+                    <button type="button" onclick="closeRecordModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30" id="save-record-btn">Сохранить запись</button>
                 </div>
             </form>
         </div>
@@ -403,6 +420,38 @@
         };
         let categoryChart = null;
         let historyChart = null;
+
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            applyTheme(savedTheme);
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        function applyTheme(theme) {
+            const sunIcon = document.getElementById('theme-icon-sun');
+            const moonIcon = document.getElementById('theme-icon-moon');
+            if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.body.className = "bg-slate-100 text-slate-800 min-h-screen";
+                if (sunIcon) sunIcon.classList.remove('hidden');
+                if (moonIcon) moonIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.body.className = "bg-slate-950 text-slate-100 min-h-screen";
+                if (sunIcon) sunIcon.classList.add('hidden');
+                if (moonIcon) moonIcon.classList.remove('hidden');
+            }
+            if (categoryChart && historyChart) {
+                renderCharts();
+            }
+        }
 
         async function fetchAll() {
             try {
@@ -573,7 +622,10 @@
                         <div class="text-[11px] text-slate-400">${r.next_hours ? r.next_hours + ' м/ч' : '-'}</div>
                     </td>
                     <td class="px-4 py-3">${linkHtml}</td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <button onclick="openEditModal(${r.id})" class="text-slate-400 hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
                         <button onclick="deleteRecord(${r.id})" class="text-slate-500 hover:text-rose-400 transition p-1" title="Удалить">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
@@ -590,6 +642,10 @@
         }
 
         function renderCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#cbd5e1' : '#475569';
+            const gridColor = isDark ? '#1e293b' : '#e2e8f0';
+
             // Category Spend Doughnut
             const categorySums = {};
             appData.records.forEach(r => {
@@ -618,7 +674,7 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 11 } }
+                            labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
                         }
                     },
                     cutout: '70%'
@@ -650,11 +706,11 @@
                     maintainAspectRatio: false,
                     scales: {
                         y: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#1e293b' }
+                            ticks: { color: textColor },
+                            grid: { color: gridColor }
                         },
                         x: {
-                            ticks: { color: '#94a3b8' },
+                            ticks: { color: textColor },
                             grid: { display: false }
                         }
                     },
@@ -665,7 +721,7 @@
             });
         }
 
-        // Mileage Modal handlers
+        // Mileage Modal
         function openMileageModal() {
             document.getElementById('input-current-km').value = appData.kpi.current_km || 25340;
             document.getElementById('input-current-hours').value = appData.kpi.current_hours || 772;
@@ -691,20 +747,70 @@
             fetchAll();
         }
 
-        // Add Record Modal handlers
+        // Add / Edit Record Modal
         function openAddModal() {
+            document.getElementById('edit-record-id').value = '';
+            document.getElementById('record-modal-title').innerHTML = '<i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i><span>Добавить запись об обслуживании</span>';
+            document.getElementById('save-record-btn').innerText = 'Сохранить запись';
+
+            document.getElementById('rec-to-tag').value = '';
             document.getElementById('rec-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('rec-km').value = appData.kpi.current_km || 25340;
             document.getElementById('rec-hours').value = appData.kpi.current_hours || 772;
-            document.getElementById('add-modal').classList.remove('hidden');
+            document.getElementById('rec-category').value = 'Двигатель';
+            document.getElementById('rec-item-name').value = '';
+            document.getElementById('rec-brand').value = '';
+            document.getElementById('rec-article').value = '';
+            document.getElementById('rec-quantity').value = '1';
+            document.getElementById('rec-unit').value = 'шт';
+            document.getElementById('rec-price').value = '';
+            document.getElementById('rec-interval-km').value = '7500';
+            document.getElementById('rec-interval-hours').value = '250';
+            document.getElementById('rec-store').value = 'Ozon';
+            document.getElementById('rec-url').value = '';
+            document.getElementById('rec-note').value = 'Плановая замена';
+
+            document.getElementById('record-modal').classList.remove('hidden');
+            lucide.createIcons();
         }
 
-        function closeAddModal() {
-            document.getElementById('add-modal').classList.add('hidden');
+        function openEditModal(id) {
+            const record = appData.records.find(r => r.id === id);
+            if (!record) return;
+
+            document.getElementById('edit-record-id').value = record.id;
+            document.getElementById('record-modal-title').innerHTML = '<i data-lucide="edit-3" class="w-5 h-5 text-yellow-400"></i><span>Редактировать запись ТО</span>';
+            document.getElementById('save-record-btn').innerText = 'Сохранить изменения';
+
+            document.getElementById('rec-to-tag').value = record.to_tag || '';
+            document.getElementById('rec-date').value = record.date || '';
+            document.getElementById('rec-km').value = record.mileage || 0;
+            document.getElementById('rec-hours').value = record.engine_hours || 0;
+            document.getElementById('rec-category').value = record.category || 'Двигатель';
+            document.getElementById('rec-item-name').value = record.item_name || '';
+            document.getElementById('rec-brand').value = record.brand || '';
+            document.getElementById('rec-article').value = record.article || '';
+            document.getElementById('rec-quantity').value = record.quantity || 1;
+            document.getElementById('rec-unit').value = record.unit || 'шт';
+            document.getElementById('rec-price').value = record.price_per_unit || '';
+            document.getElementById('rec-interval-km').value = record.interval_km || 7500;
+            document.getElementById('rec-interval-hours').value = record.interval_hours || 250;
+            document.getElementById('rec-store').value = record.store || '';
+            document.getElementById('rec-url').value = record.url || '';
+            document.getElementById('rec-note').value = record.note || '';
+
+            document.getElementById('record-modal').classList.remove('hidden');
+            lucide.createIcons();
         }
 
-        async function saveNewRecord(e) {
+        function closeRecordModal() {
+            document.getElementById('record-modal').classList.add('hidden');
+        }
+
+        async function saveRecordForm(e) {
             e.preventDefault();
+            const editId = document.getElementById('edit-record-id').value;
+
             const payload = {
                 to_tag: document.getElementById('rec-to-tag').value,
                 date: document.getElementById('rec-date').value,
@@ -724,13 +830,23 @@
                 note: document.getElementById('rec-note').value
             };
 
-            await fetch('/api/records', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            if (editId) {
+                // PUT update
+                await fetch(`/api/records/${editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                // POST create
+                await fetch('/api/records', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
 
-            closeAddModal();
+            closeRecordModal();
             fetchAll();
         }
 
@@ -742,6 +858,7 @@
 
         // Init on page load
         window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
             fetchAll();
             lucide.createIcons();
         });
