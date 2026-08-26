@@ -49,6 +49,7 @@ class MaintenanceRecord(BaseModel):
     article: Optional[str] = ""
     quantity: float = 1.0
     unit: Optional[str] = "шт"
+    price_type: Optional[str] = "total"
     price_per_unit: float
     total_price: Optional[float] = None
     interval_km: int = 7500
@@ -80,6 +81,7 @@ class PartItem(BaseModel):
     article: Optional[str] = ""
     quantity: float = 1.0
     unit: Optional[str] = "шт"
+    price_type: Optional[str] = "total"
     price_per_unit: float
     total_price: Optional[float] = None
     interval_km: int = 7500

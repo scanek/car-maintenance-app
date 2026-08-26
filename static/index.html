@@ -633,7 +633,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div>
                         <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Количество</label>
                         <input type="number" step="0.1" id="s-rec-qty" value="1" required
@@ -648,9 +648,16 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Стоимость позиции (₽) <span class="text-[10px] text-slate-400">(за всю канистру / комплект)</span></label>
-                        <input type="number" id="s-rec-price" required
-                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Цена (₽)</label>
+                        <input type="number" id="s-rec-price" required placeholder="1625"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500 font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Цена указана за:</label>
+                        <select id="s-rec-price-type" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none text-xs">
+                            <option value="total">За всю канистру / к-т</option>
+                            <option value="unit">За 1 единицу (1 л/шт)</option>
+                        </select>
                     </div>
                 </div>
 
@@ -1253,6 +1260,9 @@
                 note: "Плановая замена"
             };
 
+            const pPrice = p.total_price || p.price_per_unit || '';
+            const pType = p.price_type || 'total';
+
             const div = document.createElement('div');
             div.id = rowId;
             div.className = 'bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl space-y-3 relative shadow-sm';
@@ -1310,9 +1320,15 @@
                         </div>
                     </div>
                     <div>
-                        <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Стоимость позиции (₽)</label>
-                        <input type="number" value="${p.price_per_unit || ''}" oninput="calcTOGroupTotal()" placeholder="600" required
-                            class="part-price w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-900 dark:text-white font-bold outline-none">
+                        <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Цена (₽) & Тип</label>
+                        <div class="flex gap-1">
+                            <input type="number" value="${pPrice}" oninput="calcTOGroupTotal()" placeholder="1625" required
+                                class="part-price w-1/2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-900 dark:text-white font-bold outline-none">
+                            <select class="part-price-type w-1/2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-1 text-slate-900 dark:text-white outline-none text-[10px]" onchange="calcTOGroupTotal()">
+                                <option value="total" ${pType === 'total' ? 'selected' : ''}>За всё (канистра/к-т)</option>
+                                <option value="unit" ${pType === 'unit' ? 'selected' : ''}>За 1 ед. (за 1 л/шт)</option>
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Интервал (км / мч)</label>
@@ -1360,8 +1376,12 @@
             let total = 0;
 
             for (let r of rows) {
+                const qty = parseFloat(r.querySelector('.part-qty').value) || 1;
                 const price = parseFloat(r.querySelector('.part-price').value) || 0;
-                total += price;
+                const priceType = r.querySelector('.part-price-type').value;
+
+                const rowSum = (priceType === 'unit') ? (price * qty) : price;
+                total += rowSum;
             }
 
             document.getElementById('tog-modal-total-calc').innerText = Number(total).toLocaleString('ru-RU') + ' ₽';
@@ -1382,6 +1402,9 @@
             for (let r of rows) {
                 const qty = parseFloat(r.querySelector('.part-qty').value) || 1;
                 const price = parseFloat(r.querySelector('.part-price').value) || 0;
+                const priceType = r.querySelector('.part-price-type').value;
+                const rowTotal = (priceType === 'unit') ? (price * qty) : price;
+
                 parts.push({
                     category: r.querySelector('.part-cat').value,
                     item_name: r.querySelector('.part-name').value,
@@ -1389,8 +1412,9 @@
                     article: r.querySelector('.part-article').value,
                     quantity: qty,
                     unit: r.querySelector('.part-unit').value,
-                    price_per_unit: price,
-                    total_price: price,
+                    price_type: priceType,
+                    price_per_unit: (priceType === 'unit') ? price : (qty > 0 ? Math.round((price / qty) * 100) / 100 : price),
+                    total_price: rowTotal,
                     interval_km: parseInt(r.querySelector('.part-int-km').value) || 7500,
                     interval_hours: parseInt(r.querySelector('.part-int-h').value) || 0,
                     store: r.querySelector('.part-store').value,
@@ -1547,7 +1571,8 @@
                 document.getElementById('s-rec-article').value = r.article || '';
                 document.getElementById('s-rec-qty').value = r.quantity;
                 document.getElementById('s-rec-unit').value = r.unit || 'шт';
-                document.getElementById('s-rec-price').value = r.price_per_unit;
+                document.getElementById('s-rec-price').value = r.total_price || r.price_per_unit;
+                document.getElementById('s-rec-price-type').value = r.price_type || 'total';
                 document.getElementById('s-rec-int-km').value = r.interval_km;
                 document.getElementById('s-rec-int-hours').value = r.interval_hours;
                 document.getElementById('s-rec-store').value = r.store || '';
@@ -1584,6 +1609,11 @@
         async function saveSingleRecordForm(e) {
             e.preventDefault();
             const id = document.getElementById('s-rec-id').value;
+            const qty = parseFloat(document.getElementById('s-rec-qty').value) || 1;
+            const price = parseFloat(document.getElementById('s-rec-price').value) || 0;
+            const priceType = document.getElementById('s-rec-price-type').value;
+            const rowTotal = (priceType === 'unit') ? (price * qty) : price;
+
             const payload = {
                 to_tag: document.getElementById('s-rec-to-tag').value,
                 date: document.getElementById('s-rec-date').value,
@@ -1593,9 +1623,11 @@
                 item_name: document.getElementById('s-rec-name').value,
                 brand: document.getElementById('s-rec-brand').value,
                 article: document.getElementById('s-rec-article').value,
-                quantity: parseFloat(document.getElementById('s-rec-qty').value),
+                quantity: qty,
                 unit: document.getElementById('s-rec-unit').value,
-                price_per_unit: parseFloat(document.getElementById('s-rec-price').value),
+                price_type: priceType,
+                price_per_unit: (priceType === 'unit') ? price : (qty > 0 ? Math.round((price / qty) * 100) / 100 : price),
+                total_price: rowTotal,
                 interval_km: parseInt(document.getElementById('s-rec-int-km').value),
                 interval_hours: parseInt(document.getElementById('s-rec-int-hours').value),
                 store: document.getElementById('s-rec-store').value,
