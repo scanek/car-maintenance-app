@@ -2,7 +2,10 @@
 <html lang="ru" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e293b">
     <title>Changan CS55 Plus | Учет и Регламент ТО</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -61,6 +64,19 @@
         }
         .dark .tab-inactive:hover {
             color: #f1f5f9;
+        }
+        /* Mobile safe-area & touch optimizations */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .mobile-bottom-nav {
+                padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+            }
+            .mobile-padding-bottom {
+                padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+            }
+        }
+        @media (max-width: 640px) {
+            .mobile-hide { display: none !important; }
+            .mobile-compact-p { padding: 0.875rem !important; }
         }
     </style>
 </head>
@@ -155,7 +171,7 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <main class="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 pb-24 md:pb-8">
 
         <!-- ============================================================= -->
         <!-- TAB 1: DASHBOARD & MONITORING -->
@@ -815,17 +831,22 @@
             ['dashboard', 'to-events', 'all-parts', 'settings'].forEach(t => {
                 const content = document.getElementById(`tab-content-${t}`);
                 const btn = document.getElementById(`tab-btn-${t}`);
+                const mBtn = document.getElementById(`m-nav-${t}`);
+
                 if (t === tabId) {
                     content.classList.remove('hidden');
-                    btn.className = "py-2.5 tab-active flex items-center gap-1.5 whitespace-nowrap";
+                    if (btn) btn.className = "py-2.5 tab-active flex items-center gap-1.5 whitespace-nowrap";
+                    if (mBtn) mBtn.className = "flex flex-col items-center justify-center py-1 text-blue-600 dark:text-blue-400 font-bold transition";
                 } else {
                     content.classList.add('hidden');
-                    btn.className = "py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap";
+                    if (btn) btn.className = "py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap";
+                    if (mBtn) mBtn.className = "flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium transition";
                 }
             });
             if (tabId === 'dashboard') {
                 setTimeout(renderCharts, 50);
             }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             lucide.createIcons();
         }
 
@@ -853,6 +874,8 @@
                 };
 
                 document.getElementById('tab-to-count').innerText = appData.toGroups.length;
+                const mCount = document.getElementById('m-tab-to-count');
+                if (mCount) mCount.innerText = appData.toGroups.length;
 
                 renderDashboard();
                 renderConsumables();
@@ -2152,6 +2175,43 @@
     </script>
 
     
+    
+    <!-- Mobile Bottom Navigation Bar (Fixed for mobile screens) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 mobile-bottom-nav px-2 py-1.5 shadow-lg">
+        <div class="grid grid-cols-5 gap-1 text-center">
+            <button onclick="switchTab('dashboard')" id="m-nav-dashboard" class="flex flex-col items-center justify-center py-1 text-blue-600 dark:text-blue-400 font-semibold transition">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-0.5">Статус</span>
+            </button>
+            <button onclick="switchTab('to-events')" id="m-nav-to-events" class="flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium transition">
+                <div class="relative">
+                    <i data-lucide="calendar-check" class="w-5 h-5"></i>
+                    <span id="m-tab-to-count" class="absolute -top-1 -right-2 bg-blue-600 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">2</span>
+                </div>
+                <span class="text-[10px] mt-0.5">ТО</span>
+            </button>
+            <button onclick="switchTab('all-parts')" id="m-nav-all-parts" class="flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium transition">
+                <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-0.5">Детали</span>
+            </button>
+            <button onclick="switchTab('settings')" id="m-nav-settings" class="flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium transition">
+                <i data-lucide="sliders" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-0.5">Настройки</span>
+            </button>
+            <button onclick="openGarageModal()" id="m-nav-garage" class="flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium transition">
+                <i data-lucide="warehouse" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-0.5">Гараж</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Floating Action Button (Quick + ТО on mobile) -->
+    <div class="md:hidden fixed bottom-18 right-4 z-40">
+        <button onclick="openTOGroupModal()" class="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-xl shadow-blue-500/30 active:scale-95 transition" title="Добавить ТО">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </button>
+    </div>
+
     <!-- ============================================================= -->
     <!-- MODAL: GARAGE & VEHICLE MANAGEMENT -->
     <!-- ============================================================= -->
