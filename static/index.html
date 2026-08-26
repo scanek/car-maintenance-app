@@ -346,6 +346,34 @@
                 </button>
             </div>
 
+            
+            <!-- Admin Password Change Section -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="key" class="w-4 h-4 text-amber-500"></i>
+                    <span>Пароль администратора</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Пароль защищает режим редактирования от случайных или нежелательных изменений.</p>
+                <form onsubmit="changeAdminPassword(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                    <div>
+                        <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Текущий пароль</label>
+                        <input type="password" id="pwd-old" required placeholder="Текущий..."
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Новый пароль</label>
+                        <input type="password" id="pwd-new" required placeholder="Новый пароль..."
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm">
+                            Сменить пароль
+                        </button>
+                    </div>
+                </form>
+                <div id="pwd-change-msg" class="text-xs font-semibold"></div>
+            </div>
+
             <!-- Trackers Settings Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="trackers-settings-container">
                 <!-- Populated dynamically -->
@@ -960,7 +988,7 @@
                                 <button onclick="openTOGroupModal('${group.to_tag}')" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="Редактировать всё ТО">
                                     <i data-lucide="edit-3" class="w-4 h-4 text-amber-600 dark:text-yellow-400"></i>
                                 </button>
-                                <button onclick="deleteTOGroup('${group.to_tag}')" class="p-2 rounded-lg bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-900/40 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition" title="Удалить всё ТО">
+                                <button onclick="requireAuth(() => deleteTOGroup('${group.to_tag}'))" class="p-2 rounded-lg bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-900/40 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition" title="Удалить всё ТО">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
@@ -1088,7 +1116,7 @@
                         <button onclick="openSingleRecordModal(${r.id})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="deleteRecord(${r.id})" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
+                        <button onclick="requireAuth(() => deleteRecord(${r.id}))" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </td>
@@ -1808,6 +1836,34 @@
 
         function openTrackerModal(trackerId = null) {
             requireAuth(() => openTrackerModalInternal(trackerId));
+        }
+
+        
+        async function changeAdminPassword(e) {
+            e.preventDefault();
+            const oldP = document.getElementById('pwd-old').value;
+            const newP = document.getElementById('pwd-new').value;
+            const msg = document.getElementById('pwd-change-msg');
+            msg.innerText = '';
+
+            try {
+                const res = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ old_password: oldP, new_password: newP })
+                });
+
+                if (res.ok) {
+                    msg.innerHTML = '<span class="text-emerald-500">Пароль успешно изменен!</span>';
+                    document.getElementById('pwd-old').value = '';
+                    document.getElementById('pwd-new').value = '';
+                } else {
+                    const err = await res.json();
+                    msg.innerHTML = `<span class="text-rose-500">${err.detail || 'Ошибка изменения пароля'}</span>`;
+                }
+            } catch (err) {
+                msg.innerHTML = '<span class="text-rose-500">Ошибка подключения</span>';
+            }
         }
 
         // Init on page load
