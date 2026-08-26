@@ -294,13 +294,23 @@ def delete_vehicle(vehicle_id: str, auth: bool = Depends(require_admin)):
     return {"status": "deleted", "active_vehicle_id": db["active_vehicle_id"]}
 
 @app.post("/api/vehicle/mileage")
+@app.post("/api/vehicle")
 def update_mileage(v: VehicleMileageUpdate, auth: bool = Depends(require_admin)):
     db = load_db()
     car = get_active_vehicle(db)
     car["current_km"] = v.current_km
     car["current_engine_hours"] = v.current_engine_hours
+    
+    # Also update any vehicles list and legacy vehicle object
+    if "vehicles" in db:
+        for item in db["vehicles"]:
+            if item.get("id") == car["id"]:
+                item["current_km"] = v.current_km
+                item["current_engine_hours"] = v.current_engine_hours
+    db["vehicle"] = car
     save_db(db)
     return {"status": "success", "vehicle": car}
+
 
 # --- STATUS & RECORDS ENDPOINTS (SCOPED BY ACTIVE VEHICLE) ---
 @app.get("/")

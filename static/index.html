@@ -1595,18 +1595,31 @@
 
         async function saveMileage(e) {
             e.preventDefault();
+            requireAuth(() => executeSaveMileage());
+        }
+
+        async function executeSaveMileage() {
             const km = parseInt(document.getElementById('input-current-km').value);
             const hours = parseInt(document.getElementById('input-current-hours').value);
 
-            await fetch('/api/vehicle', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ current_km: km, current_engine_hours: hours })
-            });
+            try {
+                const res = await fetch('/api/vehicle/mileage', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ current_km: km, current_engine_hours: hours })
+                });
 
-            closeMileageModal();
-            fetchVehicles();
-            fetchAll();
+                if (res.ok) {
+                    closeMileageModal();
+                    await fetchVehicles();
+                    await fetchAll();
+                } else {
+                    const err = await res.json();
+                    alert("Ошибка сохранения: " + (err.detail || "Требуется авторизация"));
+                }
+            } catch (err) {
+                alert("Ошибка сохранения пробега");
+            }
         }
 
         // ==========================================
