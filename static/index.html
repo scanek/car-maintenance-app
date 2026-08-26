@@ -90,6 +90,13 @@
                     <i data-lucide="moon" id="theme-icon-moon" class="w-4 h-4"></i>
                 </button>
 
+                <!-- Auth Status Button -->
+                <button onclick="handleAuthClick()" id="auth-btn" class="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 transition text-xs font-semibold" title="Авторизация для редактирования">
+                    <i data-lucide="lock" id="auth-icon-locked" class="w-3.5 h-3.5 text-amber-500"></i>
+                    <i data-lucide="unlock" id="auth-icon-unlocked" class="w-3.5 h-3.5 text-emerald-500 hidden"></i>
+                    <span id="auth-btn-text">Войти</span>
+                </button>
+
                 <!-- Export Excel Button -->
                 <a href="/api/export-excel" class="flex items-center space-x-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-600/20 dark:hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-500/40 transition text-xs font-semibold" title="Скачать Excel-файл">
                     <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
@@ -1185,7 +1192,7 @@
         // ==========================================
         // TO GROUP MODAL LOGIC (BATCH EVENT EDITING)
         // ==========================================
-        function openTOGroupModal(toTag = null) {
+        function openTOGroupModalInternal(toTag = null) {
             const container = document.getElementById('tog-parts-container');
             container.innerHTML = '';
 
@@ -1439,7 +1446,7 @@
 
             await fetch('/api/to-groups', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(payload)
             });
 
@@ -1456,7 +1463,7 @@
         // ==========================================
         // TRACKER SETTINGS MODAL
         // ==========================================
-        function openTrackerModal(trackerId = null) {
+        function openTrackerModalInternal(trackerId = null) {
             if (trackerId) {
                 const t = appData.trackers.find(x => x.id === trackerId);
                 if (!t) return;
@@ -1517,7 +1524,7 @@
 
             await fetch('/api/settings/tracker', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(payload)
             });
 
@@ -1528,7 +1535,7 @@
         // ==========================================
         // MILEAGE MODAL
         // ==========================================
-        function openMileageModal() {
+        function openMileageModalInternal() {
             document.getElementById('input-current-km').value = appData.kpi.current_km || 25340;
             document.getElementById('input-current-hours').value = appData.kpi.current_hours || 772;
             document.getElementById('mileage-modal').classList.remove('hidden');
@@ -1545,7 +1552,7 @@
 
             await fetch('/api/vehicle', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ current_km: km, current_engine_hours: hours })
             });
 
@@ -1556,7 +1563,7 @@
         // ==========================================
         // SINGLE RECORD MODAL
         // ==========================================
-        function openSingleRecordModal(recordId = null) {
+        function openSingleRecordModalInternal(recordId = null) {
             if (recordId) {
                 const r = appData.records.find(x => x.id === recordId);
                 if (!r) return;
@@ -1638,13 +1645,13 @@
             if (id) {
                 await fetch(`/api/records/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
             } else {
                 await fetch('/api/records', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
             }
@@ -1659,12 +1666,188 @@
             fetchAll();
         }
 
+
+        // ==========================================
+        // AUTH & SESSION MANAGEMENT
+        // ==========================================
+        let authToken = localStorage.getItem('auth_token') || '';
+        let pendingAuthCallback = null;
+
+        function getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            return headers;
+        }
+
+        async function checkAuthStatus() {
+            if (!authToken) {
+                updateAuthUI(false);
+                return false;
+            }
+            try {
+                const res = await fetch('/api/auth/status', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (data.authenticated) {
+                    updateAuthUI(true);
+                    return true;
+                } else {
+                    authToken = '';
+                    localStorage.removeItem('auth_token');
+                    updateAuthUI(false);
+                    return false;
+                }
+            } catch (e) {
+                updateAuthUI(false);
+                return false;
+            }
+        }
+
+        function updateAuthUI(isAuth) {
+            const btnText = document.getElementById('auth-btn-text');
+            const iconLocked = document.getElementById('auth-icon-locked');
+            const iconUnlocked = document.getElementById('auth-icon-unlocked');
+
+            if (isAuth) {
+                if (btnText) btnText.innerText = "Выйти";
+                if (iconLocked) iconLocked.classList.add('hidden');
+                if (iconUnlocked) iconUnlocked.classList.remove('hidden');
+            } else {
+                if (btnText) btnText.innerText = "Войти";
+                if (iconLocked) iconLocked.classList.remove('hidden');
+                if (iconUnlocked) iconUnlocked.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function handleAuthClick() {
+            if (authToken) {
+                if (confirm("Выйти из режима редактирования?")) {
+                    fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    authToken = '';
+                    localStorage.removeItem('auth_token');
+                    updateAuthUI(false);
+                }
+            } else {
+                openAuthModal();
+            }
+        }
+
+        function openAuthModal(callback = null) {
+            pendingAuthCallback = callback;
+            document.getElementById('auth-password-input').value = '';
+            document.getElementById('auth-error-msg').innerText = '';
+            document.getElementById('auth-modal').classList.remove('hidden');
+            document.getElementById('auth-password-input').focus();
+            lucide.createIcons();
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            pendingAuthCallback = null;
+        }
+
+        async function submitAuthPassword(e) {
+            e.preventDefault();
+            const pwd = document.getElementById('auth-password-input').value;
+            const errorMsg = document.getElementById('auth-error-msg');
+            errorMsg.innerText = '';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.token;
+                    localStorage.setItem('auth_token', authToken);
+                    updateAuthUI(true);
+                    closeAuthModal();
+
+                    if (pendingAuthCallback) {
+                        const cb = pendingAuthCallback;
+                        pendingAuthCallback = null;
+                        cb();
+                    }
+                } else {
+                    errorMsg.innerHTML = '<span class="text-rose-500 font-semibold">Неверный пароль! (По умолчанию: admin)</span>';
+                }
+            } catch (err) {
+                errorMsg.innerHTML = '<span class="text-rose-500 font-semibold">Ошибка подключения</span>';
+            }
+        }
+
+        function requireAuth(callback) {
+            if (authToken) {
+                callback();
+            } else {
+                openAuthModal(callback);
+            }
+        }
+
+        function openMileageModal() {
+            requireAuth(() => openMileageModalInternal());
+        }
+
+        function openTOGroupModal(toTag = null) {
+            requireAuth(() => openTOGroupModalInternal(toTag));
+        }
+
+        function openSingleRecordModal(recordId = null) {
+            requireAuth(() => openSingleRecordModalInternal(recordId));
+        }
+
+        function openTrackerModal(trackerId = null) {
+            requireAuth(() => openTrackerModalInternal(trackerId));
+        }
+
         // Init on page load
         window.addEventListener('DOMContentLoaded', () => {
             initTheme();
+            checkAuthStatus();
             fetchAll();
             lucide.createIcons();
         });
     </script>
+
+    <!-- ============================================================= -->
+    <!-- MODAL: ADMIN PASSWORD LOGIN -->
+    <!-- ============================================================= -->
+    <div id="auth-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="shield-lock" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
+                    <span>Вход для редактирования</span>
+                </h3>
+                <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Просмотр доступен всем. Введите пароль администратора для внесения изменений:</p>
+            <form onsubmit="submitAuthPassword(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Пароль</label>
+                    <input type="password" id="auth-password-input" required placeholder="Введите пароль..."
+                        class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-slate-900 dark:text-white text-sm outline-none focus:border-blue-500">
+                    <div class="text-[11px] text-slate-400 mt-1.5" id="auth-error-msg"></div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeAuthModal()" class="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Отмена</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-md shadow-blue-500/20">Войти</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
+
 </html>

@@ -1,10 +1,12 @@
 import os
 import json
+import uuid
+import secrets
 import shutil
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -19,6 +21,20 @@ DB_FILE = DATA_DIR / "db.json"
 EXAMPLE_DB_FILE = DATA_DIR / "db.example.json"
 STATIC_DIR = Path(__file__).parent / "static"
 
+# In-memory active session tokens
+ACTIVE_SESSIONS = set()
+
+def get_admin_password():
+    # Priority: env var > db.json > default 'admin'
+    env_pwd = os.environ.get("ADMIN_PASSWORD")
+    if env_pwd:
+        return env_pwd
+    try:
+        db = load_db()
+        return db.get("admin_password", "admin")
+    except Exception:
+        return "admin"
+
 def load_db():
     if not DB_FILE.exists():
         if EXAMPLE_DB_FILE.exists():
@@ -31,6 +47,22 @@ def load_db():
 def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def require_admin(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
+    
+    token = authorization.replace("Bearer ", "").strip()
+    if token not in ACTIVE_SESSIONS:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия истекла или недействительна")
+    return True
+
+class LoginRequest(BaseModel):
+    password: str
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str
 
 class VehicleUpdate(BaseModel):
     current_km: int
@@ -98,6 +130,46 @@ class TOGroupPayload(BaseModel):
     engine_hours: int
     parts: List[PartItem]
 
+# --- AUTH ENDPOINTS ---
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    expected_pwd = get_admin_password()
+    if req.password == expected_pwd:
+        token = secrets.token_hex(24)
+        ACTIVE_SESSIONS.add(token)
+        return {"status": "success", "token": token}
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль")
+
+@app.get("/api/auth/status")
+def auth_status(authorization: Optional[str] = Header(None)):
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        if token in ACTIVE_SESSIONS:
+            return {"authenticated": True}
+    return {"authenticated": False}
+
+@app.post("/api/auth/logout")
+def logout(authorization: Optional[str] = Header(None)):
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        ACTIVE_SESSIONS.discard(token)
+    return {"status": "success"}
+
+@app.post("/api/auth/change-password")
+def change_password(req: PasswordChangeRequest, auth: bool = Depends(require_admin)):
+    expected_pwd = get_admin_password()
+    if req.old_password != expected_pwd:
+        raise HTTPException(status_code=400, detail="Текущий пароль неверен")
+    if not req.new_password or len(req.new_password) < 3:
+        raise HTTPException(status_code=400, detail="Новый пароль должен содержать минимум 3 символа")
+    
+    db = load_db()
+    db["admin_password"] = req.new_password
+    save_db(db)
+    return {"status": "success", "message": "Пароль успешно изменен"}
+
+# --- PUBLIC READ ENDPOINTS ---
 @app.get("/")
 def get_index():
     return FileResponse(STATIC_DIR / "index.html")
@@ -135,7 +207,6 @@ def get_status():
         if latest:
             last_km = latest["mileage"]
             last_h = latest["engine_hours"]
-            # Use record's interval if present or tracker's default
             rec_interval_km = latest.get("interval_km") or interval_km
             rec_interval_h = latest.get("interval_hours") or interval_h
             
@@ -180,7 +251,6 @@ def get_status():
                 "to_tag": latest.get("to_tag", "")
             })
         else:
-            # Not yet serviced / No record found
             consumables_status.append({
                 "tracker_id": tracker.get("id"),
                 "item_name": tracker.get("name"),
@@ -223,97 +293,6 @@ def get_records():
     db = load_db()
     return db.get("maintenance_records", [])
 
-@app.post("/api/records")
-def add_record(record: MaintenanceRecord):
-    db = load_db()
-    records = db.setdefault("maintenance_records", [])
-    new_id = (max([r["id"] for r in records]) + 1) if records else 1
-    
-    total_price = record.total_price if record.total_price is not None else record.price_per_unit
-    next_km = record.mileage + record.interval_km
-    next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
-    
-    new_rec = {
-        "id": new_id,
-        "to_tag": record.to_tag,
-        "date": record.date,
-        "engine_hours": record.engine_hours,
-        "mileage": record.mileage,
-        "category": record.category,
-        "item_name": record.item_name,
-        "brand": record.brand or "",
-        "article": record.article or "",
-        "quantity": record.quantity,
-        "unit": record.unit or "шт",
-        "price_per_unit": record.price_per_unit,
-        "total_price": total_price,
-        "interval_km": record.interval_km,
-        "interval_hours": record.interval_hours,
-        "next_km": next_km,
-        "next_hours": next_hours,
-        "note": record.note or "",
-        "store": record.store or "",
-        "url": record.url or ""
-    }
-    
-    records.append(new_rec)
-    
-    if record.mileage > db["vehicle"].get("current_km", 0):
-        db["vehicle"]["current_km"] = record.mileage
-    if record.engine_hours > db["vehicle"].get("current_engine_hours", 0):
-        db["vehicle"]["current_engine_hours"] = record.engine_hours
-        
-    save_db(db)
-    return {"status": "success", "record": new_rec}
-
-@app.put("/api/records/{record_id}")
-def update_record(record_id: int, record: MaintenanceRecord):
-    db = load_db()
-    records = db.get("maintenance_records", [])
-    idx = next((i for i, r in enumerate(records) if r["id"] == record_id), None)
-    if idx is None:
-        raise HTTPException(status_code=404, detail="Запись не найдена")
-    
-    total_price = record.total_price if record.total_price is not None else record.price_per_unit
-    next_km = record.mileage + record.interval_km
-    next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
-    
-    updated_rec = {
-        "id": record_id,
-        "to_tag": record.to_tag,
-        "date": record.date,
-        "engine_hours": record.engine_hours,
-        "mileage": record.mileage,
-        "category": record.category,
-        "item_name": record.item_name,
-        "brand": record.brand or "",
-        "article": record.article or "",
-        "quantity": record.quantity,
-        "unit": record.unit or "шт",
-        "price_per_unit": record.price_per_unit,
-        "total_price": total_price,
-        "interval_km": record.interval_km,
-        "interval_hours": record.interval_hours,
-        "next_km": next_km,
-        "next_hours": next_hours,
-        "note": record.note or "",
-        "store": record.store or "",
-        "url": record.url or ""
-    }
-    
-    records[idx] = updated_rec
-    save_db(db)
-    return {"status": "success", "record": updated_rec}
-
-@app.delete("/api/records/{record_id}")
-def delete_record(record_id: int):
-    db = load_db()
-    records = db.get("maintenance_records", [])
-    db["maintenance_records"] = [r for r in records if r["id"] != record_id]
-    save_db(db)
-    return {"status": "deleted", "id": record_id}
-
-# --- TO Group Endpoints (Batch TO Event Management) ---
 @app.get("/api/to-groups")
 def get_to_groups():
     db = load_db()
@@ -338,12 +317,112 @@ def get_to_groups():
         
     return list(groups.values())
 
+@app.get("/api/settings")
+def get_settings():
+    db = load_db()
+    return {
+        "vehicle": db.get("vehicle", {}),
+        "trackers": db.get("trackers", [])
+    }
+
+# --- PROTECTED WRITE ENDPOINTS (REQUIRE ADMIN SESSION) ---
+@app.post("/api/records")
+def add_record(record: MaintenanceRecord, auth: bool = Depends(require_admin)):
+    db = load_db()
+    records = db.setdefault("maintenance_records", [])
+    new_id = (max([r["id"] for r in records]) + 1) if records else 1
+    
+    total_price = record.total_price if record.total_price is not None else record.price_per_unit
+    next_km = record.mileage + record.interval_km
+    next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
+    
+    new_rec = {
+        "id": new_id,
+        "to_tag": record.to_tag,
+        "date": record.date,
+        "engine_hours": record.engine_hours,
+        "mileage": record.mileage,
+        "category": record.category,
+        "item_name": record.item_name,
+        "brand": record.brand or "",
+        "article": record.article or "",
+        "quantity": record.quantity,
+        "unit": record.unit or "шт",
+        "price_type": record.price_type or "total",
+        "price_per_unit": record.price_per_unit,
+        "total_price": total_price,
+        "interval_km": record.interval_km,
+        "interval_hours": record.interval_hours,
+        "next_km": next_km,
+        "next_hours": next_hours,
+        "note": record.note or "",
+        "store": record.store or "",
+        "url": record.url or ""
+    }
+    
+    records.append(new_rec)
+    
+    if record.mileage > db["vehicle"].get("current_km", 0):
+        db["vehicle"]["current_km"] = record.mileage
+    if record.engine_hours > db["vehicle"].get("current_engine_hours", 0):
+        db["vehicle"]["current_engine_hours"] = record.engine_hours
+        
+    save_db(db)
+    return {"status": "success", "record": new_rec}
+
+@app.put("/api/records/{record_id}")
+def update_record(record_id: int, record: MaintenanceRecord, auth: bool = Depends(require_admin)):
+    db = load_db()
+    records = db.get("maintenance_records", [])
+    idx = next((i for i, r in enumerate(records) if r["id"] == record_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    
+    total_price = record.total_price if record.total_price is not None else record.price_per_unit
+    next_km = record.mileage + record.interval_km
+    next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
+    
+    updated_rec = {
+        "id": record_id,
+        "to_tag": record.to_tag,
+        "date": record.date,
+        "engine_hours": record.engine_hours,
+        "mileage": record.mileage,
+        "category": record.category,
+        "item_name": record.item_name,
+        "brand": record.brand or "",
+        "article": record.article or "",
+        "quantity": record.quantity,
+        "unit": record.unit or "шт",
+        "price_type": record.price_type or "total",
+        "price_per_unit": record.price_per_unit,
+        "total_price": total_price,
+        "interval_km": record.interval_km,
+        "interval_hours": record.interval_hours,
+        "next_km": next_km,
+        "next_hours": next_hours,
+        "note": record.note or "",
+        "store": record.store or "",
+        "url": record.url or ""
+    }
+    
+    records[idx] = updated_rec
+    save_db(db)
+    return {"status": "success", "record": updated_rec}
+
+@app.delete("/api/records/{record_id}")
+def delete_record(record_id: int, auth: bool = Depends(require_admin)):
+    db = load_db()
+    records = db.get("maintenance_records", [])
+    db["maintenance_records"] = [r for r in records if r["id"] != record_id]
+    save_db(db)
+    return {"status": "deleted", "id": record_id}
+
 @app.post("/api/to-groups")
-def save_to_group(payload: TOGroupPayload):
+def save_to_group(payload: TOGroupPayload, auth: bool = Depends(require_admin)):
     db = load_db()
     records = db.setdefault("maintenance_records", [])
     
-    # If editing existing group, remove old parts
     if payload.original_to_tag:
         db["maintenance_records"] = [r for r in records if r.get("to_tag") != payload.original_to_tag]
         records = db["maintenance_records"]
@@ -368,6 +447,7 @@ def save_to_group(payload: TOGroupPayload):
             "article": part.article or "",
             "quantity": part.quantity,
             "unit": part.unit or "шт",
+            "price_type": part.price_type or "total",
             "price_per_unit": part.price_per_unit,
             "total_price": total_p,
             "interval_km": part.interval_km,
@@ -389,29 +469,19 @@ def save_to_group(payload: TOGroupPayload):
     return {"status": "success", "to_tag": payload.to_tag, "parts_added": len(payload.parts)}
 
 @app.delete("/api/to-groups/{to_tag}")
-def delete_to_group(to_tag: str):
+def delete_to_group(to_tag: str, auth: bool = Depends(require_admin)):
     db = load_db()
     records = db.get("maintenance_records", [])
     db["maintenance_records"] = [r for r in records if r.get("to_tag") != to_tag]
     save_db(db)
     return {"status": "deleted", "to_tag": to_tag}
 
-# --- Settings & Trackers Endpoints ---
-@app.get("/api/settings")
-def get_settings():
-    db = load_db()
-    return {
-        "vehicle": db.get("vehicle", {}),
-        "trackers": db.get("trackers", [])
-    }
-
 @app.post("/api/settings/tracker")
-def save_tracker(tracker: TrackerSetting):
+def save_tracker(tracker: TrackerSetting, auth: bool = Depends(require_admin)):
     db = load_db()
     trackers = db.setdefault("trackers", [])
     
     t_id = tracker.id or tracker.name.lower().replace(" ", "_").replace("(", "").replace(")", "")
-    
     idx = next((i for i, t in enumerate(trackers) if t.get("id") == t_id), None)
     
     tracker_dict = {
@@ -439,7 +509,7 @@ def save_tracker(tracker: TrackerSetting):
     return {"status": "success", "tracker": tracker_dict}
 
 @app.delete("/api/settings/tracker/{tracker_id}")
-def delete_tracker(tracker_id: str):
+def delete_tracker(tracker_id: str, auth: bool = Depends(require_admin)):
     db = load_db()
     trackers = db.get("trackers", [])
     db["trackers"] = [t for t in trackers if t.get("id") != tracker_id]
@@ -447,7 +517,7 @@ def delete_tracker(tracker_id: str):
     return {"status": "deleted", "id": tracker_id}
 
 @app.post("/api/vehicle")
-def update_vehicle(v: VehicleUpdate):
+def update_vehicle(v: VehicleUpdate, auth: bool = Depends(require_admin)):
     db = load_db()
     db["vehicle"]["current_km"] = v.current_km
     db["vehicle"]["current_engine_hours"] = v.current_engine_hours
