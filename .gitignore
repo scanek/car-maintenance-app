@@ -9,3 +9,5 @@ ENV/
 *.log
 .DS_Store
 Thumbs.db
+data/db.json
+!data/db.example.json
