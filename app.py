@@ -227,7 +227,7 @@ def add_record(record: MaintenanceRecord):
     records = db.setdefault("maintenance_records", [])
     new_id = (max([r["id"] for r in records]) + 1) if records else 1
     
-    total_price = record.total_price if record.total_price is not None else (record.price_per_unit * record.quantity)
+    total_price = record.total_price if record.total_price is not None else record.price_per_unit
     next_km = record.mileage + record.interval_km
     next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
     
@@ -272,7 +272,7 @@ def update_record(record_id: int, record: MaintenanceRecord):
     if idx is None:
         raise HTTPException(status_code=404, detail="Запись не найдена")
     
-    total_price = record.total_price if record.total_price is not None else (record.price_per_unit * record.quantity)
+    total_price = record.total_price if record.total_price is not None else record.price_per_unit
     next_km = record.mileage + record.interval_km
     next_hours = (record.engine_hours + record.interval_hours) if record.interval_hours > 0 else 0
     
@@ -350,7 +350,7 @@ def save_to_group(payload: TOGroupPayload):
     
     for part in payload.parts:
         current_max_id += 1
-        total_p = part.total_price if part.total_price is not None else (part.price_per_unit * part.quantity)
+        total_p = part.total_price if part.total_price is not None else part.price_per_unit
         next_k = payload.mileage + part.interval_km
         next_h = (payload.engine_hours + part.interval_hours) if part.interval_hours > 0 else 0
         

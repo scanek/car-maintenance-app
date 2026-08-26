@@ -648,7 +648,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Цена (₽)</label>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Стоимость позиции (₽) <span class="text-[10px] text-slate-400">(за всю канистру / комплект)</span></label>
                         <input type="number" id="s-rec-price" required
                             class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
                     </div>
@@ -1310,7 +1310,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Цена за ед./компл (₽)</label>
+                        <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Стоимость позиции (₽)</label>
                         <input type="number" value="${p.price_per_unit || ''}" oninput="calcTOGroupTotal()" placeholder="600" required
                             class="part-price w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-900 dark:text-white font-bold outline-none">
                     </div>
@@ -1360,9 +1360,8 @@
             let total = 0;
 
             for (let r of rows) {
-                const qty = parseFloat(r.querySelector('.part-qty').value) || 1;
                 const price = parseFloat(r.querySelector('.part-price').value) || 0;
-                total += (price * qty);
+                total += price;
             }
 
             document.getElementById('tog-modal-total-calc').innerText = Number(total).toLocaleString('ru-RU') + ' ₽';
@@ -1391,7 +1390,7 @@
                     quantity: qty,
                     unit: r.querySelector('.part-unit').value,
                     price_per_unit: price,
-                    total_price: price * qty,
+                    total_price: price,
                     interval_km: parseInt(r.querySelector('.part-int-km').value) || 7500,
                     interval_hours: parseInt(r.querySelector('.part-int-h').value) || 0,
                     store: r.querySelector('.part-store').value,
