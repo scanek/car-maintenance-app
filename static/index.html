@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changan CS55 Plus | Учет и Регламент ТО</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        darkBg: '#0f172a',
+                        cardBg: '#1e293b',
+                        borderBg: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        .gauge-bar {
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .modal-backdrop {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600/20 text-blue-400 p-2 rounded-xl border border-blue-500/30">
+                    <i data-lucide="car" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span id="vehicle-title">Changan CS55 Plus</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50">1.5T 7DCT</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Система мониторинга износа и учета ТО</p>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="flex items-center space-x-3">
+                <button onclick="openMileageModal()" class="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition text-sm">
+                    <i data-lucide="gauge" class="w-4 h-4 text-yellow-400"></i>
+                    <span>Обновить пробег</span>
+                </button>
+                <button onclick="openAddModal()" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg shadow-lg shadow-blue-600/20 font-medium transition text-sm">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>Добавить ТО</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- KPI Stats Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Card 1: Current Mileage & Hours -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider">Текущий пробег</span>
+                    <i data-lucide="activity" class="w-4 h-4 text-blue-400"></i>
+                </div>
+                <div class="text-2xl font-black text-white" id="kpi-km">25 340 км</div>
+                <div class="mt-2 text-xs text-slate-400 flex items-center gap-1.5">
+                    <span class="text-yellow-400 font-semibold" id="kpi-hours">772 м/ч</span>
+                    <span>• Ср. скорость:</span>
+                    <span class="text-emerald-400 font-semibold" id="kpi-speed">32.8 км/ч</span>
+                </div>
+            </div>
+
+            <!-- Card 2: Total Spent -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider">Всего затрат на ТО</span>
+                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+                </div>
+                <div class="text-2xl font-black text-emerald-400" id="kpi-total-spent">13 090 ₽</div>
+                <div class="mt-2 text-xs text-slate-400">
+                    Зафиксировано позиций: <span class="text-white font-medium" id="kpi-records-count">9</span>
+                </div>
+            </div>
+
+            <!-- Card 3: Cost per KM -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider">Стоимость 1 км (ТО)</span>
+                    <i data-lucide="trending-down" class="w-4 h-4 text-purple-400"></i>
+                </div>
+                <div class="text-2xl font-black text-purple-300" id="kpi-cost-km">0.52 ₽/км</div>
+                <div class="mt-2 text-xs text-slate-400">
+                    Только расходники и материалы
+                </div>
+            </div>
+
+            <!-- Card 4: Status / Attention -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider">Статус обслуживания</span>
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400" id="kpi-shield-icon"></i>
+                </div>
+                <div class="text-2xl font-black" id="kpi-attention-text">Все в норме</div>
+                <div class="mt-2 text-xs" id="kpi-attention-sub">Все узлы имеют запас ресурса</div>
+            </div>
+        </section>
+
+        <!-- Consumables Wear Status Section (Traffic Light Gauges) -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="gauge" class="w-5 h-5 text-blue-400"></i>
+                        <span>Мониторинг износа расходников</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">Автоматический расчет остатка ресурса по пробегу и моточасам</p>
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> В норме</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span> Скоро (<1500 км)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Замена!</span>
+                </div>
+            </div>
+
+            <!-- Gauges Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="consumables-container">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Analytics Charts & Specs Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Spend by Category Chart -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-1">
+                <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-blue-400"></i>
+                    <span>Расходы по категориям</span>
+                </h3>
+                <div class="h-56 relative flex items-center justify-center">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Spending & Mileage Dynamics Chart -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 lg:col-span-2">
+                <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
+                    <span>История затрат по этапам ТО</span>
+                </h3>
+                <div class="h-56">
+                    <canvas id="historyChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Service History Table Section -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-400"></i>
+                        <span>Журнал выполненных работ</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">Все замененные детали, артикулы, стоимость и регламенты</p>
+                </div>
+                
+                <!-- Search & Filters -->
+                <div class="flex items-center gap-2">
+                    <input type="text" id="table-search" oninput="filterTable()" placeholder="Поиск детали / артикула..." 
+                        class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none w-48 sm:w-60">
+                    <select id="table-category-filter" onchange="filterTable()" 
+                        class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none">
+                        <option value="">Все категории</option>
+                        <option value="Двигатель">Двигатель</option>
+                        <option value="Фильтры">Фильтры</option>
+                        <option value="Зажигание">Зажигание</option>
+                        <option value="Охлаждение">Охлаждение</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+                <table class="min-w-full divide-y divide-slate-800 text-left text-xs">
+                    <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-semibold">
+                        <tr>
+                            <th class="px-4 py-3">ТО</th>
+                            <th class="px-4 py-3">Дата</th>
+                            <th class="px-4 py-3">Пробег / МЧ</th>
+                            <th class="px-4 py-3">Наименование</th>
+                            <th class="px-4 py-3">Бренд & Артикул</th>
+                            <th class="px-4 py-3">Кол-во</th>
+                            <th class="px-4 py-3">Сумма</th>
+                            <th class="px-4 py-3">След. замена</th>
+                            <th class="px-4 py-3">Магазин</th>
+                            <th class="px-4 py-3 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 bg-slate-900/40 text-slate-200" id="records-table-body">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Update Mileage & Engine Hours -->
+    <div id="mileage-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="gauge" class="w-5 h-5 text-yellow-400"></i>
+                    <span>Текущие показатели авто</span>
+                </h3>
+                <button onclick="closeMileageModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="saveMileage(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Текущий пробег (км)</label>
+                    <input type="number" id="input-current-km" required
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2.5 text-white font-semibold text-lg focus:border-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Текущие моточасы (м/ч)</label>
+                    <input type="number" id="input-current-hours" required
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2.5 text-white font-semibold text-lg focus:border-blue-500 outline-none">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeMileageModal()" class="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white">Отмена</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-xs font-semibold shadow-lg shadow-blue-600/30">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add New Service Record -->
+    <div id="add-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-400"></i>
+                    <span>Добавить запись об обслуживании</span>
+                </h3>
+                <button onclick="closeAddModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="saveNewRecord(event)" class="space-y-4 text-xs">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Метка ТО</label>
+                        <input type="text" id="rec-to-tag" placeholder="ТО-4, Внеплановое..." required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Дата замены</label>
+                        <input type="date" id="rec-date" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Пробег на момент замены (км)</label>
+                        <input type="number" id="rec-km" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Моточасы (м/ч)</label>
+                        <input type="number" id="rec-hours" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Категория</label>
+                        <select id="rec-category" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                            <option value="Двигатель">Двигатель</option>
+                            <option value="Фильтры">Фильтры</option>
+                            <option value="Зажигание">Зажигание</option>
+                            <option value="Охлаждение">Охлаждение</option>
+                            <option value="Тормоза">Тормоза</option>
+                            <option value="Трансмиссия">Трансмиссия</option>
+                            <option value="Прочее">Прочее</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Наименование расходника</label>
+                        <input type="text" id="rec-item-name" placeholder="Масло моторное 0W-20..." required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Марка / Бренд</label>
+                        <input type="text" id="rec-brand" placeholder="Лукойл, VIC, MANN..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Артикул / Код товара</label>
+                        <input type="text" id="rec-article" placeholder="1012010MK01..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Количество</label>
+                        <input type="number" step="0.1" id="rec-quantity" value="1" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Ед. изм.</label>
+                        <select id="rec-unit" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                            <option value="шт">шт</option>
+                            <option value="л">л</option>
+                            <option value="компл">компл</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Цена (₽)</label>
+                        <input type="number" id="rec-price" placeholder="3600" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Интервал до сл. замены (км)</label>
+                        <input type="number" id="rec-interval-km" value="7500" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Интервал до сл. замены (м/ч)</label>
+                        <input type="number" id="rec-interval-hours" value="250"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Где куплено</label>
+                        <input type="text" id="rec-store" placeholder="Ozon, Дилер..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-300 mb-1">Ссылка на товар</label>
+                        <input type="url" id="rec-url" placeholder="https://ozon.ru/..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-300 mb-1">Примечание</label>
+                    <input type="text" id="rec-note" value="Плановая замена"
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500">
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 font-medium text-slate-400 hover:text-white">Отмена</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-600/30">Сохранить запись</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Frontend App Logic -->
+    <script>
+        let appData = {
+            vehicle: {},
+            kpi: {},
+            consumables: [],
+            records: []
+        };
+        let categoryChart = null;
+        let historyChart = null;
+
+        async function fetchAll() {
+            try {
+                const statusRes = await fetch('/api/status');
+                const statusData = await statusRes.json();
+                
+                const recRes = await fetch('/api/records');
+                const recData = await recRes.json();
+
+                appData = {
+                    vehicle: statusData.vehicle,
+                    kpi: statusData.kpi,
+                    consumables: statusData.consumables,
+                    records: recData
+                };
+
+                renderDashboard();
+                renderConsumables();
+                renderTable();
+                renderCharts();
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
+        }
+
+        function renderDashboard() {
+            document.getElementById('kpi-km').innerText = Number(appData.kpi.current_km).toLocaleString('ru-RU') + ' км';
+            document.getElementById('kpi-hours').innerText = Number(appData.kpi.current_hours).toLocaleString('ru-RU') + ' м/ч';
+            document.getElementById('kpi-speed').innerText = appData.kpi.avg_speed + ' км/ч';
+            document.getElementById('kpi-total-spent').innerText = Number(appData.kpi.total_spent).toLocaleString('ru-RU') + ' ₽';
+            document.getElementById('kpi-cost-km').innerText = appData.kpi.cost_per_km + ' ₽/км';
+            document.getElementById('kpi-records-count').innerText = appData.kpi.total_records;
+
+            const attentionCount = appData.kpi.attention_count;
+            const attentionText = document.getElementById('kpi-attention-text');
+            const attentionSub = document.getElementById('kpi-attention-sub');
+            const shieldIcon = document.getElementById('kpi-shield-icon');
+
+            if (attentionCount === 0) {
+                attentionText.innerText = "Все в норме";
+                attentionText.className = "text-2xl font-black text-emerald-400";
+                attentionSub.innerText = "Все узлы имеют хороший запас ресурса";
+                shieldIcon.className = "w-4 h-4 text-emerald-400";
+            } else {
+                attentionText.innerText = `Внимание (${attentionCount})`;
+                attentionText.className = "text-2xl font-black text-yellow-400";
+                attentionSub.innerText = "Есть расходники требующие замены";
+                shieldIcon.className = "w-4 h-4 text-yellow-400";
+            }
+        }
+
+        function renderConsumables() {
+            const container = document.getElementById('consumables-container');
+            container.innerHTML = '';
+
+            appData.consumables.forEach(item => {
+                let badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                let barColor = 'bg-emerald-500';
+                let iconColor = 'text-emerald-400';
+
+                if (item.status_code === 'warning') {
+                    badgeColor = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40';
+                    barColor = 'bg-yellow-500';
+                    iconColor = 'text-yellow-400';
+                } else if (item.status_code === 'danger') {
+                    badgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+                    barColor = 'bg-rose-500';
+                    iconColor = 'text-rose-400';
+                }
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative hover:border-slate-700 transition';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2.5 rounded-xl bg-slate-800 border border-slate-700/60 ${iconColor}">
+                                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-sm">${item.item_name}</h4>
+                                <p class="text-xs text-slate-400">${item.brand || ''} ${item.article ? '• ' + item.article : ''}</p>
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full border ${badgeColor}">
+                            ${item.status_text}
+                        </span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Износ ресурса:</span>
+                            <span class="font-bold text-slate-200">${item.wear_percent}%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                            <div class="h-2 rounded-full gauge-bar ${barColor}" style="width: ${Math.min(100, item.wear_percent)}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                        <div>
+                            <span class="text-slate-400 block text-[11px]">Осталось пробега:</span>
+                            <span class="font-bold ${item.rem_km <= 1500 ? 'text-yellow-400' : 'text-white'}">
+                                ${item.rem_km.toLocaleString('ru-RU')} км
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[11px]">Следующая замена:</span>
+                            <span class="font-medium text-slate-300">
+                                ${item.next_km.toLocaleString('ru-RU')} км
+                            </span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('records-table-body');
+            tbody.innerHTML = '';
+
+            const searchTerm = (document.getElementById('table-search').value || '').toLowerCase();
+            const categoryFilter = document.getElementById('table-category-filter').value;
+
+            const filtered = appData.records.filter(r => {
+                const matchCat = !categoryFilter || r.category === categoryFilter;
+                const matchSearch = !searchTerm || 
+                    r.item_name.toLowerCase().includes(searchTerm) || 
+                    (r.brand && r.brand.toLowerCase().includes(searchTerm)) ||
+                    (r.article && r.article.toLowerCase().includes(searchTerm));
+                return matchCat && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-8 text-center text-slate-400">Записи не найдены</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50 transition';
+                
+                let linkHtml = r.store || '-';
+                if (r.url) {
+                    linkHtml = `<a href="${r.url}" target="_blank" class="text-blue-400 hover:text-blue-300 underline flex items-center gap-1">${r.store || 'Ссылка'} <i data-lucide="external-link" class="w-3 h-3"></i></a>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-semibold text-blue-400">${r.to_tag || '-'}</td>
+                    <td class="px-4 py-3 text-slate-300 whitespace-nowrap">${r.date}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="font-medium text-white">${Number(r.mileage).toLocaleString('ru-RU')} км</div>
+                        <div class="text-[11px] text-slate-400">${r.engine_hours} м/ч</div>
+                    </td>
+                    <td class="px-4 py-3 font-medium text-white">${r.item_name}</td>
+                    <td class="px-4 py-3 text-slate-300">
+                        <div>${r.brand || '-'}</div>
+                        <div class="text-[11px] text-slate-400 font-mono">${r.article || ''}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">${r.quantity} ${r.unit || 'шт'}</td>
+                    <td class="px-4 py-3 font-bold text-emerald-400 whitespace-nowrap">${Number(r.total_price).toLocaleString('ru-RU')} ₽</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div>${Number(r.next_km).toLocaleString('ru-RU')} км</div>
+                        <div class="text-[11px] text-slate-400">${r.next_hours ? r.next_hours + ' м/ч' : '-'}</div>
+                    </td>
+                    <td class="px-4 py-3">${linkHtml}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="deleteRecord(${r.id})" class="text-slate-500 hover:text-rose-400 transition p-1" title="Удалить">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        function filterTable() {
+            renderTable();
+        }
+
+        function renderCharts() {
+            // Category Spend Doughnut
+            const categorySums = {};
+            appData.records.forEach(r => {
+                const cat = r.category || 'Прочее';
+                categorySums[cat] = (categorySums[cat] || 0) + r.total_price;
+            });
+
+            const catLabels = Object.keys(categorySums);
+            const catValues = Object.values(categorySums);
+
+            if (categoryChart) categoryChart.destroy();
+            const ctxCat = document.getElementById('categoryChart').getContext('2d');
+            categoryChart = new Chart(ctxCat, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catValues,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 11 } }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+
+            // History by TO Stage
+            const toGroups = {};
+            appData.records.forEach(r => {
+                const tag = r.to_tag || 'ТО';
+                toGroups[tag] = (toGroups[tag] || 0) + r.total_price;
+            });
+
+            if (historyChart) historyChart.destroy();
+            const ctxHist = document.getElementById('historyChart').getContext('2d');
+            historyChart = new Chart(ctxHist, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(toGroups),
+                    datasets: [{
+                        label: 'Затраты на ТО (₽)',
+                        data: Object.values(toGroups),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#1e293b' }
+                        },
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Mileage Modal handlers
+        function openMileageModal() {
+            document.getElementById('input-current-km').value = appData.kpi.current_km || 25340;
+            document.getElementById('input-current-hours').value = appData.kpi.current_hours || 772;
+            document.getElementById('mileage-modal').classList.remove('hidden');
+        }
+
+        function closeMileageModal() {
+            document.getElementById('mileage-modal').classList.add('hidden');
+        }
+
+        async function saveMileage(e) {
+            e.preventDefault();
+            const km = parseInt(document.getElementById('input-current-km').value);
+            const hours = parseInt(document.getElementById('input-current-hours').value);
+
+            await fetch('/api/vehicle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_km: km, current_engine_hours: hours })
+            });
+
+            closeMileageModal();
+            fetchAll();
+        }
+
+        // Add Record Modal handlers
+        function openAddModal() {
+            document.getElementById('rec-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('rec-km').value = appData.kpi.current_km || 25340;
+            document.getElementById('rec-hours').value = appData.kpi.current_hours || 772;
+            document.getElementById('add-modal').classList.remove('hidden');
+        }
+
+        function closeAddModal() {
+            document.getElementById('add-modal').classList.add('hidden');
+        }
+
+        async function saveNewRecord(e) {
+            e.preventDefault();
+            const payload = {
+                to_tag: document.getElementById('rec-to-tag').value,
+                date: document.getElementById('rec-date').value,
+                mileage: parseInt(document.getElementById('rec-km').value),
+                engine_hours: parseInt(document.getElementById('rec-hours').value),
+                category: document.getElementById('rec-category').value,
+                item_name: document.getElementById('rec-item-name').value,
+                brand: document.getElementById('rec-brand').value,
+                article: document.getElementById('rec-article').value,
+                quantity: parseFloat(document.getElementById('rec-quantity').value),
+                unit: document.getElementById('rec-unit').value,
+                price_per_unit: parseFloat(document.getElementById('rec-price').value),
+                interval_km: parseInt(document.getElementById('rec-interval-km').value),
+                interval_hours: parseInt(document.getElementById('rec-interval-hours').value),
+                store: document.getElementById('rec-store').value,
+                url: document.getElementById('rec-url').value,
+                note: document.getElementById('rec-note').value
+            };
+
+            await fetch('/api/records', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            closeAddModal();
+            fetchAll();
+        }
+
+        async function deleteRecord(id) {
+            if (!confirm('Вы уверены, что хотите удалить эту запись?')) return;
+            await fetch(`/api/records/${id}`, { method: 'DELETE' });
+            fetchAll();
+        }
+
+        // Init on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchAll();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
