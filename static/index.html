@@ -1129,6 +1129,35 @@
             lucide.createIcons();
         }
 
+        function getFormattedTagBadge(r) {
+            const tag = r.to_tag || 'Вне ТО';
+            const cat = r.category || '';
+            if (tag.toUpperCase().startsWith('ТО')) {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">${tag}</span>`;
+            } else if (tag === 'Тюнинг' || cat.includes('Тюнинг')) {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">🏎️ ${tag}</span>`;
+            } else if (tag === 'Шины' || cat.includes('Шин') || cat.includes('колес')) {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">🛞 ${tag}</span>`;
+            } else if (tag === 'АКБ' || cat.includes('Аккумулятор')) {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">🔋 ${tag}</span>`;
+            } else if (tag === 'Ремонт' || cat.includes('Ремонт')) {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">🛠️ ${tag}</span>`;
+            } else {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">📦 ${tag}</span>`;
+            }
+        }
+
+        function editAnyRecord(id) {
+            const r = appData.records.find(x => x.id === id);
+            if (!r) return;
+            const tag = r.to_tag || '';
+            if (tag.toUpperCase().startsWith('ТО')) {
+                openSingleRecordModal(id);
+            } else {
+                openCustomRecordModal(r);
+            }
+        }
+
         function renderTable() {
             const tbody = document.getElementById('records-table-body');
             tbody.innerHTML = '';
@@ -1137,11 +1166,19 @@
             const categoryFilter = document.getElementById('table-category-filter').value;
 
             const filtered = appData.records.filter(r => {
-                const matchCat = !categoryFilter || r.category === categoryFilter;
+                let matchCat = true;
+                if (categoryFilter === 'ТО') {
+                    matchCat = (r.to_tag || '').toUpperCase().startsWith('ТО');
+                } else if (categoryFilter) {
+                    matchCat = (r.category === categoryFilter) || (r.to_tag === categoryFilter);
+                }
+
                 const matchSearch = !searchTerm || 
-                    r.item_name.toLowerCase().includes(searchTerm) || 
+                    (r.item_name && r.item_name.toLowerCase().includes(searchTerm)) || 
                     (r.brand && r.brand.toLowerCase().includes(searchTerm)) ||
-                    (r.article && r.article.toLowerCase().includes(searchTerm));
+                    (r.article && r.article.toLowerCase().includes(searchTerm)) ||
+                    (r.to_tag && r.to_tag.toLowerCase().includes(searchTerm)) ||
+                    (r.store && r.store.toLowerCase().includes(searchTerm));
                 return matchCat && matchSearch;
             });
 
@@ -1160,7 +1197,7 @@
                 }
 
                 tr.innerHTML = `
-                    <td class="px-4 py-3 font-semibold text-blue-600 dark:text-blue-400">${r.to_tag || '-'}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${getFormattedTagBadge(r)}</td>
                     <td class="px-4 py-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">${r.date}</td>
                     <td class="px-4 py-3 whitespace-nowrap">
                         <div class="font-medium text-slate-900 dark:text-white">${Number(r.mileage).toLocaleString('ru-RU')} км</div>
@@ -1179,10 +1216,10 @@
                     </td>
                     <td class="px-4 py-3">${linkHtml}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <button onclick="openSingleRecordModal(${r.id})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
+                        <button onclick="editAnyRecord(${r.id})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="requireAuth(() => deleteRecord(${r.id}))" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
+                        <button onclick="deleteRecord(${r.id})" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </td>
@@ -1550,10 +1587,24 @@
         }
 
         async function deleteTOGroup(toTag) {
-            if (!confirm(`Вы уверены, что хотите удалить ${toTag} и все детали внутри него?`)) return;
-            await fetch(`/api/to-groups/${encodeURIComponent(toTag)}`, { method: 'DELETE' });
-            fetchVehicles();
-            fetchAll();
+            requireAuth(async () => {
+                if (!confirm(`Вы уверены, что хотите удалить ${toTag} и все детали внутри него?`)) return;
+                try {
+                    const res = await fetch(`/api/to-groups/${encodeURIComponent(toTag)}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
+                    if (res.ok) {
+                        fetchVehicles();
+                        fetchAll();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Ошибка удаления ТО');
+                    }
+                } catch (e) {
+                    alert('Не удалось выполнить удаление ТО');
+                }
+            });
         }
 
         // ==========================================
@@ -1806,10 +1857,24 @@
         }
 
         async function deleteRecord(id) {
-            if (!confirm('Вы уверены, что хотите удалить эту деталь?')) return;
-            await fetch(`/api/records/${id}`, { method: 'DELETE' });
-            fetchVehicles();
-            fetchAll();
+            requireAuth(async () => {
+                if (!confirm('Вы уверены, что хотите удалить эту запись/деталь?')) return;
+                try {
+                    const res = await fetch(`/api/records/${id}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
+                    if (res.ok) {
+                        fetchVehicles();
+                        fetchAll();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Ошибка удаления записи');
+                    }
+                } catch (e) {
+                    alert('Не удалось выполнить удаление');
+                }
+            });
         }
 
 
