@@ -134,10 +134,11 @@
                     <span>Excel</span>
                 </a>
 
-                <!-- Add Custom Expense / Upgrade Button -->
-                <button onclick="openCustomRecordModal()" class="hidden sm:flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 px-3 py-1.5 rounded-lg font-semibold transition text-xs" title="Добавить покупку, тюнинг, шины, аккумулятор или доработку">
+                <!-- Add Custom Expense / Upgrade Button (Visible on both Mobile and Desktop) -->
+                <button onclick="openCustomRecordModal()" class="flex items-center space-x-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 px-2.5 py-1.5 rounded-lg font-semibold transition text-xs" title="Добавить покупку, тюнинг, шины, аккумулятор или доработку">
                     <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-500"></i>
-                    <span>+ Доработка / Покупка</span>
+                    <span class="hidden sm:inline">+ Доработка / Покупка</span>
+                    <span class="sm:hidden">Доработка</span>
                 </button>
 
                 <!-- Add TO Group (Desktop only) -->
@@ -2358,8 +2359,12 @@
         </div>
     </nav>
 
-    <!-- Mobile Floating Action Button (Quick + ТО on mobile) -->
-    <div class="md:hidden fixed bottom-18 right-4 z-40">
+    <!-- Mobile Floating Action Buttons (Quick +ТО and +Доработка on mobile) -->
+    <div class="md:hidden fixed bottom-18 right-3.5 z-40 flex flex-col gap-2.5 items-end">
+        <button onclick="openCustomRecordModal()" class="h-10 px-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xl shadow-indigo-600/30 active:scale-95 transition text-xs font-bold" title="Добавить тюнинг / шины / покупку">
+            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-200"></i>
+            <span>+ Доработка</span>
+        </button>
         <button onclick="openTOGroupModal()" class="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-xl shadow-blue-500/30 active:scale-95 transition" title="Добавить ТО">
             <i data-lucide="plus" class="w-6 h-6"></i>
         </button>
