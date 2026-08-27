@@ -55,6 +55,24 @@ def require_admin(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия истекла или недействительна")
     return True
 
+
+def get_vehicle_trackers(db, car):
+    if "trackers" in car:
+        return car["trackers"]
+    if car.get("id") == "car_1":
+        return db.get("trackers", [])
+    return []
+
+def set_vehicle_trackers(db, car, trackers):
+    car["trackers"] = trackers
+    if car.get("id") == "car_1":
+        db["trackers"] = trackers
+    # update car inside vehicles array
+    vehicles = db.setdefault("vehicles", [])
+    for v in vehicles:
+        if v.get("id") == car["id"]:
+            v["trackers"] = trackers
+
 def get_active_vehicle(db):
     vehicles = db.setdefault("vehicles", [])
     if not vehicles:
@@ -248,7 +266,8 @@ def add_vehicle(v: VehicleModel, auth: bool = Depends(require_admin)):
         "vin": v.vin or "",
         "current_km": v.current_km or 0,
         "current_engine_hours": v.current_engine_hours or 0,
-        "oil_spec": v.oil_spec or ""
+        "oil_spec": v.oil_spec or "",
+        "trackers": []
     }
     vehicles.append(new_car)
     db["active_vehicle_id"] = new_id
@@ -325,7 +344,7 @@ def get_status():
     
     all_records = db.get("maintenance_records", [])
     records = [r for r in all_records if r.get("vehicle_id", "car_1") == v_id]
-    trackers = db.get("trackers", [])
+    trackers = get_vehicle_trackers(db, vehicle)
     
     current_km = vehicle.get("current_km", 0)
     current_hours = vehicle.get("current_engine_hours", 0)
@@ -481,7 +500,7 @@ def get_settings():
     vehicle = get_active_vehicle(db)
     return {
         "vehicle": vehicle,
-        "trackers": db.get("trackers", [])
+        "trackers": get_vehicle_trackers(db, vehicle)
     }
 
 # --- WRITE ENDPOINTS (PROTECTED) ---
@@ -649,7 +668,8 @@ def delete_to_group(to_tag: str, auth: bool = Depends(require_admin)):
 @app.post("/api/settings/tracker")
 def save_tracker(tracker: TrackerSetting, auth: bool = Depends(require_admin)):
     db = load_db()
-    trackers = db.setdefault("trackers", [])
+    car = get_active_vehicle(db)
+    trackers = list(get_vehicle_trackers(db, car))
     
     t_id = tracker.id or tracker.name.lower().replace(" ", "_").replace("(", "").replace(")", "")
     idx = next((i for i, t in enumerate(trackers) if t.get("id") == t_id), None)
@@ -675,13 +695,14 @@ def save_tracker(tracker: TrackerSetting, auth: bool = Depends(require_admin)):
     else:
         trackers.append(tracker_dict)
         
+    set_vehicle_trackers(db, car, trackers)
     save_db(db)
     return {"status": "success", "tracker": tracker_dict}
 
 @app.delete("/api/settings/tracker/{tracker_id}")
 def delete_tracker(tracker_id: str, auth: bool = Depends(require_admin)):
     db = load_db()
-    trackers = db.get("trackers", [])
+    trackers = get_vehicle_trackers(db, vehicle)
     db["trackers"] = [t for t in trackers if t.get("id") != tracker_id]
     save_db(db)
     return {"status": "deleted", "id": tracker_id}
@@ -693,7 +714,7 @@ def export_excel():
     v_id = vehicle["id"]
     all_records = db.get("maintenance_records", [])
     records = [r for r in all_records if r.get("vehicle_id", "car_1") == v_id]
-    trackers = db.get("trackers", [])
+    trackers = get_vehicle_trackers(db, vehicle)
     
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
