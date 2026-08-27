@@ -334,6 +334,12 @@ def get_status():
     cost_per_km = round(total_spent / current_km, 2) if current_km > 0 else 0
     avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
     
+    # Expense Breakdown
+    to_spent = sum(r.get("total_price", 0) for r in records if str(r.get("to_tag", "")).upper().startswith("ТО"))
+    custom_spent = total_spent - to_spent
+    tuning_spent = sum(r.get("total_price", 0) for r in records if "тюнинг" in str(r.get("category", "")).lower() or "тюнинг" in str(r.get("to_tag", "")).lower())
+    tires_spent = sum(r.get("total_price", 0) for r in records if "шин" in str(r.get("category", "")).lower() or "колес" in str(r.get("category", "")).lower())
+    
     consumables_status = []
     
     for tracker in trackers:
