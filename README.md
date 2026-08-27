@@ -137,3 +137,10 @@ car-maintenance-app/
 
 ## 📜 Лицензия
 MIT License © 2026
+
+---
+
+## 👨‍💻 Автор проекта
+
+**Щеголев Александр** ([@scanek](https://github.com/scanek))  
+Репозиторий: [github.com/scanek/car-maintenance-app](https://github.com/scanek/car-maintenance-app)
