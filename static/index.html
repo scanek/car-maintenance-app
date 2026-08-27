@@ -8,11 +8,464 @@
     <meta name="theme-color" content="#1e293b">
     <title>Changan CS55 Plus | Учет и Регламент ТО</title>
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com">
+        // =========================================================================
+        // CUSTOM RECORD / EXPENSE / UPGRADE FUNCTIONS
+        // =========================================================================
+        function openCustomRecordModal(record = null) {
+            checkAuthBeforeAction(() => {
+                const modal = document.getElementById('custom-record-modal');
+                const title = document.getElementById('custom-modal-title');
+                const form = document.getElementById('custom-record-form');
+                form.reset();
+
+                if (record) {
+                    title.innerText = 'Редактировать запись';
+                    document.getElementById('custom-edit-id').value = record.id || '';
+                    document.getElementById('custom-category').value = record.category || 'Тюнинг и доработки';
+                    document.getElementById('custom-item-name').value = record.item_name || '';
+                    document.getElementById('custom-date').value = record.date || '';
+                    document.getElementById('custom-mileage').value = record.mileage || '';
+                    document.getElementById('custom-brand').value = record.brand || '';
+                    document.getElementById('custom-article').value = record.article || '';
+                    document.getElementById('custom-quantity').value = record.quantity || 1;
+                    document.getElementById('custom-unit').value = record.unit || 'шт';
+                    document.getElementById('custom-price').value = record.total_price || record.price_per_unit || '';
+                    document.getElementById('custom-store').value = record.store || '';
+                    document.getElementById('custom-url').value = record.url || '';
+                    document.getElementById('custom-note').value = record.note || '';
+                } else {
+                    title.innerText = 'Добавить покупку / Тюнинг / Шины';
+                    document.getElementById('custom-edit-id').value = '';
+                    document.getElementById('custom-date').value = new Date().toISOString().split('T')[0];
+                    document.getElementById('custom-mileage').value = (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_km : '';
+                    document.getElementById('custom-quantity').value = '1';
+                }
+
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        function closeCustomRecordModal() {
+            document.getElementById('custom-record-modal').classList.add('hidden');
+        }
+
+        function onCustomCategoryChange() {
+            const cat = document.getElementById('custom-category').value;
+            const unit = document.getElementById('custom-unit');
+            if (cat === 'Шины и диски') {
+                unit.value = 'комплект 4 шт';
+            }
+        }
+
+        async function handleSaveCustomRecord(event) {
+            event.preventDefault();
+            const editId = document.getElementById('custom-edit-id').value;
+            const cat = document.getElementById('custom-category').value;
+            const itemName = document.getElementById('custom-item-name').value.trim();
+            const date = document.getElementById('custom-date').value;
+            const mileage = parseInt(document.getElementById('custom-mileage').value, 10) || 0;
+            const brand = document.getElementById('custom-brand').value.trim();
+            const article = document.getElementById('custom-article').value.trim();
+            const qty = parseFloat(document.getElementById('custom-quantity').value) || 1;
+            const unit = document.getElementById('custom-unit').value;
+            const price = parseFloat(document.getElementById('custom-price').value) || 0;
+            const store = document.getElementById('custom-store').value.trim();
+            const url = document.getElementById('custom-url').value.trim();
+            const note = document.getElementById('custom-note').value.trim();
+
+            let tag = 'Вне ТО';
+            if (cat === 'Тюнинг и доработки') tag = 'Тюнинг';
+            else if (cat === 'Шины и диски') tag = 'Шины';
+            else if (cat === 'Аккумулятор') tag = 'АКБ';
+            else if (cat === 'Ремонт') tag = 'Ремонт';
+
+            const payload = {
+                vehicle_id: (appData.status && appData.status.vehicle) ? appData.status.vehicle.id : 'car_1',
+                to_tag: tag,
+                date: date,
+                engine_hours: (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_engine_hours : 0,
+                mileage: mileage,
+                category: cat,
+                item_name: itemName,
+                brand: brand,
+                article: article,
+                quantity: qty,
+                unit: unit,
+                price_type: 'total',
+                price_per_unit: price,
+                total_price: price,
+                interval_km: 0,
+                interval_hours: 0,
+                note: note || 'Покупка / Доработка',
+                store: store,
+                url: url
+            };
+
+            try {
+                let res;
+                if (editId) {
+                    res = await authFetch(`/api/records/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await authFetch('/api/records', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (res && res.ok) {
+                    closeCustomRecordModal();
+                    await loadData();
+                    switchTab('all-parts');
+                } else if (res) {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка сохранения');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось сохранить запись');
+            }
+        }
+
+        let currentPillFilter = '';
+        function setPartsFilter(cat) {
+            currentPillFilter = cat;
+            document.getElementById('category-filter').value = cat;
+            
+            ['all', 'to', 'tires', 'tuning', 'battery', 'repair'].forEach(p => {
+                const btn = document.getElementById(`pill-filter-${p}`);
+                if (!btn) return;
+                btn.className = "px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium flex-shrink-0 transition";
+            });
+
+            let activeP = 'all';
+            if (cat === 'ТО') activeP = 'to';
+            else if (cat === 'Шины и диски') activeP = 'tires';
+            else if (cat === 'Тюнинг и доработки') activeP = 'tuning';
+            else if (cat === 'Аккумулятор') activeP = 'battery';
+            else if (cat === 'Ремонт') activeP = 'repair';
+
+            const activeBtn = document.getElementById(`pill-filter-${activeP}`);
+            if (activeBtn) {
+                activeBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold flex-shrink-0 transition";
+            }
+
+            filterTable();
+        }
+
+</script>
     <!-- Lucide Icons CDN -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest">
+        // =========================================================================
+        // CUSTOM RECORD / EXPENSE / UPGRADE FUNCTIONS
+        // =========================================================================
+        function openCustomRecordModal(record = null) {
+            checkAuthBeforeAction(() => {
+                const modal = document.getElementById('custom-record-modal');
+                const title = document.getElementById('custom-modal-title');
+                const form = document.getElementById('custom-record-form');
+                form.reset();
+
+                if (record) {
+                    title.innerText = 'Редактировать запись';
+                    document.getElementById('custom-edit-id').value = record.id || '';
+                    document.getElementById('custom-category').value = record.category || 'Тюнинг и доработки';
+                    document.getElementById('custom-item-name').value = record.item_name || '';
+                    document.getElementById('custom-date').value = record.date || '';
+                    document.getElementById('custom-mileage').value = record.mileage || '';
+                    document.getElementById('custom-brand').value = record.brand || '';
+                    document.getElementById('custom-article').value = record.article || '';
+                    document.getElementById('custom-quantity').value = record.quantity || 1;
+                    document.getElementById('custom-unit').value = record.unit || 'шт';
+                    document.getElementById('custom-price').value = record.total_price || record.price_per_unit || '';
+                    document.getElementById('custom-store').value = record.store || '';
+                    document.getElementById('custom-url').value = record.url || '';
+                    document.getElementById('custom-note').value = record.note || '';
+                } else {
+                    title.innerText = 'Добавить покупку / Тюнинг / Шины';
+                    document.getElementById('custom-edit-id').value = '';
+                    document.getElementById('custom-date').value = new Date().toISOString().split('T')[0];
+                    document.getElementById('custom-mileage').value = (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_km : '';
+                    document.getElementById('custom-quantity').value = '1';
+                }
+
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        function closeCustomRecordModal() {
+            document.getElementById('custom-record-modal').classList.add('hidden');
+        }
+
+        function onCustomCategoryChange() {
+            const cat = document.getElementById('custom-category').value;
+            const unit = document.getElementById('custom-unit');
+            if (cat === 'Шины и диски') {
+                unit.value = 'комплект 4 шт';
+            }
+        }
+
+        async function handleSaveCustomRecord(event) {
+            event.preventDefault();
+            const editId = document.getElementById('custom-edit-id').value;
+            const cat = document.getElementById('custom-category').value;
+            const itemName = document.getElementById('custom-item-name').value.trim();
+            const date = document.getElementById('custom-date').value;
+            const mileage = parseInt(document.getElementById('custom-mileage').value, 10) || 0;
+            const brand = document.getElementById('custom-brand').value.trim();
+            const article = document.getElementById('custom-article').value.trim();
+            const qty = parseFloat(document.getElementById('custom-quantity').value) || 1;
+            const unit = document.getElementById('custom-unit').value;
+            const price = parseFloat(document.getElementById('custom-price').value) || 0;
+            const store = document.getElementById('custom-store').value.trim();
+            const url = document.getElementById('custom-url').value.trim();
+            const note = document.getElementById('custom-note').value.trim();
+
+            let tag = 'Вне ТО';
+            if (cat === 'Тюнинг и доработки') tag = 'Тюнинг';
+            else if (cat === 'Шины и диски') tag = 'Шины';
+            else if (cat === 'Аккумулятор') tag = 'АКБ';
+            else if (cat === 'Ремонт') tag = 'Ремонт';
+
+            const payload = {
+                vehicle_id: (appData.status && appData.status.vehicle) ? appData.status.vehicle.id : 'car_1',
+                to_tag: tag,
+                date: date,
+                engine_hours: (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_engine_hours : 0,
+                mileage: mileage,
+                category: cat,
+                item_name: itemName,
+                brand: brand,
+                article: article,
+                quantity: qty,
+                unit: unit,
+                price_type: 'total',
+                price_per_unit: price,
+                total_price: price,
+                interval_km: 0,
+                interval_hours: 0,
+                note: note || 'Покупка / Доработка',
+                store: store,
+                url: url
+            };
+
+            try {
+                let res;
+                if (editId) {
+                    res = await authFetch(`/api/records/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await authFetch('/api/records', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (res && res.ok) {
+                    closeCustomRecordModal();
+                    await loadData();
+                    switchTab('all-parts');
+                } else if (res) {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка сохранения');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось сохранить запись');
+            }
+        }
+
+        let currentPillFilter = '';
+        function setPartsFilter(cat) {
+            currentPillFilter = cat;
+            document.getElementById('category-filter').value = cat;
+            
+            ['all', 'to', 'tires', 'tuning', 'battery', 'repair'].forEach(p => {
+                const btn = document.getElementById(`pill-filter-${p}`);
+                if (!btn) return;
+                btn.className = "px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium flex-shrink-0 transition";
+            });
+
+            let activeP = 'all';
+            if (cat === 'ТО') activeP = 'to';
+            else if (cat === 'Шины и диски') activeP = 'tires';
+            else if (cat === 'Тюнинг и доработки') activeP = 'tuning';
+            else if (cat === 'Аккумулятор') activeP = 'battery';
+            else if (cat === 'Ремонт') activeP = 'repair';
+
+            const activeBtn = document.getElementById(`pill-filter-${activeP}`);
+            if (activeBtn) {
+                activeBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold flex-shrink-0 transition";
+            }
+
+            filterTable();
+        }
+
+</script>
     <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js">
+        // =========================================================================
+        // CUSTOM RECORD / EXPENSE / UPGRADE FUNCTIONS
+        // =========================================================================
+        function openCustomRecordModal(record = null) {
+            checkAuthBeforeAction(() => {
+                const modal = document.getElementById('custom-record-modal');
+                const title = document.getElementById('custom-modal-title');
+                const form = document.getElementById('custom-record-form');
+                form.reset();
+
+                if (record) {
+                    title.innerText = 'Редактировать запись';
+                    document.getElementById('custom-edit-id').value = record.id || '';
+                    document.getElementById('custom-category').value = record.category || 'Тюнинг и доработки';
+                    document.getElementById('custom-item-name').value = record.item_name || '';
+                    document.getElementById('custom-date').value = record.date || '';
+                    document.getElementById('custom-mileage').value = record.mileage || '';
+                    document.getElementById('custom-brand').value = record.brand || '';
+                    document.getElementById('custom-article').value = record.article || '';
+                    document.getElementById('custom-quantity').value = record.quantity || 1;
+                    document.getElementById('custom-unit').value = record.unit || 'шт';
+                    document.getElementById('custom-price').value = record.total_price || record.price_per_unit || '';
+                    document.getElementById('custom-store').value = record.store || '';
+                    document.getElementById('custom-url').value = record.url || '';
+                    document.getElementById('custom-note').value = record.note || '';
+                } else {
+                    title.innerText = 'Добавить покупку / Тюнинг / Шины';
+                    document.getElementById('custom-edit-id').value = '';
+                    document.getElementById('custom-date').value = new Date().toISOString().split('T')[0];
+                    document.getElementById('custom-mileage').value = (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_km : '';
+                    document.getElementById('custom-quantity').value = '1';
+                }
+
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        function closeCustomRecordModal() {
+            document.getElementById('custom-record-modal').classList.add('hidden');
+        }
+
+        function onCustomCategoryChange() {
+            const cat = document.getElementById('custom-category').value;
+            const unit = document.getElementById('custom-unit');
+            if (cat === 'Шины и диски') {
+                unit.value = 'комплект 4 шт';
+            }
+        }
+
+        async function handleSaveCustomRecord(event) {
+            event.preventDefault();
+            const editId = document.getElementById('custom-edit-id').value;
+            const cat = document.getElementById('custom-category').value;
+            const itemName = document.getElementById('custom-item-name').value.trim();
+            const date = document.getElementById('custom-date').value;
+            const mileage = parseInt(document.getElementById('custom-mileage').value, 10) || 0;
+            const brand = document.getElementById('custom-brand').value.trim();
+            const article = document.getElementById('custom-article').value.trim();
+            const qty = parseFloat(document.getElementById('custom-quantity').value) || 1;
+            const unit = document.getElementById('custom-unit').value;
+            const price = parseFloat(document.getElementById('custom-price').value) || 0;
+            const store = document.getElementById('custom-store').value.trim();
+            const url = document.getElementById('custom-url').value.trim();
+            const note = document.getElementById('custom-note').value.trim();
+
+            let tag = 'Вне ТО';
+            if (cat === 'Тюнинг и доработки') tag = 'Тюнинг';
+            else if (cat === 'Шины и диски') tag = 'Шины';
+            else if (cat === 'Аккумулятор') tag = 'АКБ';
+            else if (cat === 'Ремонт') tag = 'Ремонт';
+
+            const payload = {
+                vehicle_id: (appData.status && appData.status.vehicle) ? appData.status.vehicle.id : 'car_1',
+                to_tag: tag,
+                date: date,
+                engine_hours: (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_engine_hours : 0,
+                mileage: mileage,
+                category: cat,
+                item_name: itemName,
+                brand: brand,
+                article: article,
+                quantity: qty,
+                unit: unit,
+                price_type: 'total',
+                price_per_unit: price,
+                total_price: price,
+                interval_km: 0,
+                interval_hours: 0,
+                note: note || 'Покупка / Доработка',
+                store: store,
+                url: url
+            };
+
+            try {
+                let res;
+                if (editId) {
+                    res = await authFetch(`/api/records/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await authFetch('/api/records', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (res && res.ok) {
+                    closeCustomRecordModal();
+                    await loadData();
+                    switchTab('all-parts');
+                } else if (res) {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка сохранения');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось сохранить запись');
+            }
+        }
+
+        let currentPillFilter = '';
+        function setPartsFilter(cat) {
+            currentPillFilter = cat;
+            document.getElementById('category-filter').value = cat;
+            
+            ['all', 'to', 'tires', 'tuning', 'battery', 'repair'].forEach(p => {
+                const btn = document.getElementById(`pill-filter-${p}`);
+                if (!btn) return;
+                btn.className = "px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium flex-shrink-0 transition";
+            });
+
+            let activeP = 'all';
+            if (cat === 'ТО') activeP = 'to';
+            else if (cat === 'Шины и диски') activeP = 'tires';
+            else if (cat === 'Тюнинг и доработки') activeP = 'tuning';
+            else if (cat === 'Аккумулятор') activeP = 'battery';
+            else if (cat === 'Ремонт') activeP = 'repair';
+
+            const activeBtn = document.getElementById(`pill-filter-${activeP}`);
+            if (activeBtn) {
+                activeBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold flex-shrink-0 transition";
+            }
+
+            filterTable();
+        }
+
+</script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -30,7 +483,158 @@
                 }
             }
         }
-    </script>
+    
+        // =========================================================================
+        // CUSTOM RECORD / EXPENSE / UPGRADE FUNCTIONS
+        // =========================================================================
+        function openCustomRecordModal(record = null) {
+            checkAuthBeforeAction(() => {
+                const modal = document.getElementById('custom-record-modal');
+                const title = document.getElementById('custom-modal-title');
+                const form = document.getElementById('custom-record-form');
+                form.reset();
+
+                if (record) {
+                    title.innerText = 'Редактировать запись';
+                    document.getElementById('custom-edit-id').value = record.id || '';
+                    document.getElementById('custom-category').value = record.category || 'Тюнинг и доработки';
+                    document.getElementById('custom-item-name').value = record.item_name || '';
+                    document.getElementById('custom-date').value = record.date || '';
+                    document.getElementById('custom-mileage').value = record.mileage || '';
+                    document.getElementById('custom-brand').value = record.brand || '';
+                    document.getElementById('custom-article').value = record.article || '';
+                    document.getElementById('custom-quantity').value = record.quantity || 1;
+                    document.getElementById('custom-unit').value = record.unit || 'шт';
+                    document.getElementById('custom-price').value = record.total_price || record.price_per_unit || '';
+                    document.getElementById('custom-store').value = record.store || '';
+                    document.getElementById('custom-url').value = record.url || '';
+                    document.getElementById('custom-note').value = record.note || '';
+                } else {
+                    title.innerText = 'Добавить покупку / Тюнинг / Шины';
+                    document.getElementById('custom-edit-id').value = '';
+                    document.getElementById('custom-date').value = new Date().toISOString().split('T')[0];
+                    document.getElementById('custom-mileage').value = (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_km : '';
+                    document.getElementById('custom-quantity').value = '1';
+                }
+
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        function closeCustomRecordModal() {
+            document.getElementById('custom-record-modal').classList.add('hidden');
+        }
+
+        function onCustomCategoryChange() {
+            const cat = document.getElementById('custom-category').value;
+            const unit = document.getElementById('custom-unit');
+            if (cat === 'Шины и диски') {
+                unit.value = 'комплект 4 шт';
+            }
+        }
+
+        async function handleSaveCustomRecord(event) {
+            event.preventDefault();
+            const editId = document.getElementById('custom-edit-id').value;
+            const cat = document.getElementById('custom-category').value;
+            const itemName = document.getElementById('custom-item-name').value.trim();
+            const date = document.getElementById('custom-date').value;
+            const mileage = parseInt(document.getElementById('custom-mileage').value, 10) || 0;
+            const brand = document.getElementById('custom-brand').value.trim();
+            const article = document.getElementById('custom-article').value.trim();
+            const qty = parseFloat(document.getElementById('custom-quantity').value) || 1;
+            const unit = document.getElementById('custom-unit').value;
+            const price = parseFloat(document.getElementById('custom-price').value) || 0;
+            const store = document.getElementById('custom-store').value.trim();
+            const url = document.getElementById('custom-url').value.trim();
+            const note = document.getElementById('custom-note').value.trim();
+
+            let tag = 'Вне ТО';
+            if (cat === 'Тюнинг и доработки') tag = 'Тюнинг';
+            else if (cat === 'Шины и диски') tag = 'Шины';
+            else if (cat === 'Аккумулятор') tag = 'АКБ';
+            else if (cat === 'Ремонт') tag = 'Ремонт';
+
+            const payload = {
+                vehicle_id: (appData.status && appData.status.vehicle) ? appData.status.vehicle.id : 'car_1',
+                to_tag: tag,
+                date: date,
+                engine_hours: (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_engine_hours : 0,
+                mileage: mileage,
+                category: cat,
+                item_name: itemName,
+                brand: brand,
+                article: article,
+                quantity: qty,
+                unit: unit,
+                price_type: 'total',
+                price_per_unit: price,
+                total_price: price,
+                interval_km: 0,
+                interval_hours: 0,
+                note: note || 'Покупка / Доработка',
+                store: store,
+                url: url
+            };
+
+            try {
+                let res;
+                if (editId) {
+                    res = await authFetch(`/api/records/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await authFetch('/api/records', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (res && res.ok) {
+                    closeCustomRecordModal();
+                    await loadData();
+                    switchTab('all-parts');
+                } else if (res) {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка сохранения');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось сохранить запись');
+            }
+        }
+
+        let currentPillFilter = '';
+        function setPartsFilter(cat) {
+            currentPillFilter = cat;
+            document.getElementById('category-filter').value = cat;
+            
+            ['all', 'to', 'tires', 'tuning', 'battery', 'repair'].forEach(p => {
+                const btn = document.getElementById(`pill-filter-${p}`);
+                if (!btn) return;
+                btn.className = "px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium flex-shrink-0 transition";
+            });
+
+            let activeP = 'all';
+            if (cat === 'ТО') activeP = 'to';
+            else if (cat === 'Шины и диски') activeP = 'tires';
+            else if (cat === 'Тюнинг и доработки') activeP = 'tuning';
+            else if (cat === 'Аккумулятор') activeP = 'battery';
+            else if (cat === 'Ремонт') activeP = 'repair';
+
+            const activeBtn = document.getElementById(`pill-filter-${activeP}`);
+            if (activeBtn) {
+                activeBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold flex-shrink-0 transition";
+            }
+
+            filterTable();
+        }
+
+</script>
     <style>
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -2192,7 +2796,158 @@
             fetchAll();
             lucide.createIcons();
         });
-    </script>
+    
+        // =========================================================================
+        // CUSTOM RECORD / EXPENSE / UPGRADE FUNCTIONS
+        // =========================================================================
+        function openCustomRecordModal(record = null) {
+            checkAuthBeforeAction(() => {
+                const modal = document.getElementById('custom-record-modal');
+                const title = document.getElementById('custom-modal-title');
+                const form = document.getElementById('custom-record-form');
+                form.reset();
+
+                if (record) {
+                    title.innerText = 'Редактировать запись';
+                    document.getElementById('custom-edit-id').value = record.id || '';
+                    document.getElementById('custom-category').value = record.category || 'Тюнинг и доработки';
+                    document.getElementById('custom-item-name').value = record.item_name || '';
+                    document.getElementById('custom-date').value = record.date || '';
+                    document.getElementById('custom-mileage').value = record.mileage || '';
+                    document.getElementById('custom-brand').value = record.brand || '';
+                    document.getElementById('custom-article').value = record.article || '';
+                    document.getElementById('custom-quantity').value = record.quantity || 1;
+                    document.getElementById('custom-unit').value = record.unit || 'шт';
+                    document.getElementById('custom-price').value = record.total_price || record.price_per_unit || '';
+                    document.getElementById('custom-store').value = record.store || '';
+                    document.getElementById('custom-url').value = record.url || '';
+                    document.getElementById('custom-note').value = record.note || '';
+                } else {
+                    title.innerText = 'Добавить покупку / Тюнинг / Шины';
+                    document.getElementById('custom-edit-id').value = '';
+                    document.getElementById('custom-date').value = new Date().toISOString().split('T')[0];
+                    document.getElementById('custom-mileage').value = (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_km : '';
+                    document.getElementById('custom-quantity').value = '1';
+                }
+
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        function closeCustomRecordModal() {
+            document.getElementById('custom-record-modal').classList.add('hidden');
+        }
+
+        function onCustomCategoryChange() {
+            const cat = document.getElementById('custom-category').value;
+            const unit = document.getElementById('custom-unit');
+            if (cat === 'Шины и диски') {
+                unit.value = 'комплект 4 шт';
+            }
+        }
+
+        async function handleSaveCustomRecord(event) {
+            event.preventDefault();
+            const editId = document.getElementById('custom-edit-id').value;
+            const cat = document.getElementById('custom-category').value;
+            const itemName = document.getElementById('custom-item-name').value.trim();
+            const date = document.getElementById('custom-date').value;
+            const mileage = parseInt(document.getElementById('custom-mileage').value, 10) || 0;
+            const brand = document.getElementById('custom-brand').value.trim();
+            const article = document.getElementById('custom-article').value.trim();
+            const qty = parseFloat(document.getElementById('custom-quantity').value) || 1;
+            const unit = document.getElementById('custom-unit').value;
+            const price = parseFloat(document.getElementById('custom-price').value) || 0;
+            const store = document.getElementById('custom-store').value.trim();
+            const url = document.getElementById('custom-url').value.trim();
+            const note = document.getElementById('custom-note').value.trim();
+
+            let tag = 'Вне ТО';
+            if (cat === 'Тюнинг и доработки') tag = 'Тюнинг';
+            else if (cat === 'Шины и диски') tag = 'Шины';
+            else if (cat === 'Аккумулятор') tag = 'АКБ';
+            else if (cat === 'Ремонт') tag = 'Ремонт';
+
+            const payload = {
+                vehicle_id: (appData.status && appData.status.vehicle) ? appData.status.vehicle.id : 'car_1',
+                to_tag: tag,
+                date: date,
+                engine_hours: (appData.status && appData.status.vehicle) ? appData.status.vehicle.current_engine_hours : 0,
+                mileage: mileage,
+                category: cat,
+                item_name: itemName,
+                brand: brand,
+                article: article,
+                quantity: qty,
+                unit: unit,
+                price_type: 'total',
+                price_per_unit: price,
+                total_price: price,
+                interval_km: 0,
+                interval_hours: 0,
+                note: note || 'Покупка / Доработка',
+                store: store,
+                url: url
+            };
+
+            try {
+                let res;
+                if (editId) {
+                    res = await authFetch(`/api/records/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await authFetch('/api/records', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (res && res.ok) {
+                    closeCustomRecordModal();
+                    await loadData();
+                    switchTab('all-parts');
+                } else if (res) {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка сохранения');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось сохранить запись');
+            }
+        }
+
+        let currentPillFilter = '';
+        function setPartsFilter(cat) {
+            currentPillFilter = cat;
+            document.getElementById('category-filter').value = cat;
+            
+            ['all', 'to', 'tires', 'tuning', 'battery', 'repair'].forEach(p => {
+                const btn = document.getElementById(`pill-filter-${p}`);
+                if (!btn) return;
+                btn.className = "px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium flex-shrink-0 transition";
+            });
+
+            let activeP = 'all';
+            if (cat === 'ТО') activeP = 'to';
+            else if (cat === 'Шины и диски') activeP = 'tires';
+            else if (cat === 'Тюнинг и доработки') activeP = 'tuning';
+            else if (cat === 'Аккумулятор') activeP = 'battery';
+            else if (cat === 'Ремонт') activeP = 'repair';
+
+            const activeBtn = document.getElementById(`pill-filter-${activeP}`);
+            if (activeBtn) {
+                activeBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold flex-shrink-0 transition";
+            }
+
+            filterTable();
+        }
+
+</script>
 
     
     
@@ -2356,6 +3111,131 @@
             </form>
         </div>
     </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL: ADD CUSTOM RECORD / UPGRADE / TIRES / TUNING -->
+    <!-- ============================================================= -->
+    <div id="custom-record-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white" id="custom-modal-title">Добавить покупку / Тюнинг / Шины</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Произвольная запись вне регламентного ТО</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeCustomRecordModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Form Body -->
+            <form id="custom-record-form" onsubmit="handleSaveCustomRecord(event)" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                <input type="hidden" id="custom-edit-id">
+
+                <!-- Type / Category Selector -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Тип записи / Категория *</label>
+                    <select id="custom-category" onchange="onCustomCategoryChange()" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500" required>
+                        <option value="Тюнинг и доработки">🏎️ Тюнинг и доработки (Стайлинг, шумоизоляция, обвесы)</option>
+                        <option value="Шины и диски">🛞 Шины и колеса (Резина лето/зима, диски, шиномонтаж)</option>
+                        <option value="Аккумулятор">🔋 Аккумулятор и электрика (АКБ, лампы, проводка)</option>
+                        <option value="Ремонт">🛠️ Ремонт и сервис (Внеплановая замена, подвеска, кузов)</option>
+                        <option value="Детейлинг">🧼 Детейлинг и уход (Полировка, пленка, керамика, химчистка)</option>
+                        <option value="Автотовары">📦 Автотовары и аксессуары (Коврики, чехлы, органайзеры)</option>
+                        <option value="Прочее">📝 Другие расходы</option>
+                    </select>
+                </div>
+
+                <!-- Item Name -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Наименование покупки / работы *</label>
+                    <input type="text" id="custom-item-name" placeholder="Например: Зимние шины Pirelli Ice Zero 2 или Шумоизоляция арок" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500" required>
+                </div>
+
+                <!-- Date & Mileage -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Дата *</label>
+                        <input type="date" id="custom-date" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Пробег установки (км)</label>
+                        <input type="number" id="custom-mileage" placeholder="25340" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Brand & Article -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Бренд / Производитель</label>
+                        <input type="text" id="custom-brand" placeholder="Pirelli / Topla / Changan" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Артикул / Модель</label>
+                        <input type="text" id="custom-article" placeholder="225/55 R19 103T" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Price & Quantity -->
+                <div class="grid grid-cols-12 gap-3 items-end">
+                    <div class="col-span-4">
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Количество</label>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="custom-quantity" step="any" value="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                            <select id="custom-unit" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-2.5 text-xs text-slate-700 dark:text-slate-300">
+                                <option value="шт">шт</option>
+                                <option value="комплект">компл</option>
+                                <option value="л">л</option>
+                                <option value="комплект 4 шт">4 шт</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-span-8">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Стоимость (₽) *</label>
+                            <span class="text-[11px] text-slate-400 font-medium">Итоговая сумма</span>
+                        </div>
+                        <input type="number" id="custom-price" placeholder="48000" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 placeholder-slate-400 focus:outline-none focus:border-indigo-500" required>
+                    </div>
+                </div>
+
+                <!-- Store & URL -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Магазин / Сервис</label>
+                        <input type="text" id="custom-store" placeholder="Ozon, Колеса Даром, Тюнинг-центр" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Ссылка на товар (URL)</label>
+                        <input type="url" id="custom-url" placeholder="https://..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Notes / Warranty -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Заметки, гарантия или детали</label>
+                    <textarea id="custom-note" rows="2" placeholder="Гарантия 2 года, чек №4901, сезонное хранение..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" onclick="closeCustomRecordModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-semibold transition">
+                        Отмена
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-500/20 transition flex items-center space-x-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Сохранить запись</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </body>
 
 </html>
