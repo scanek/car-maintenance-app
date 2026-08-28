@@ -1377,6 +1377,9 @@ def save_tyre(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
         "current_km": int(payload.get("current_km", 0)),
         "tread_depth_mm": float(payload.get("tread_depth_mm", 8.0)),
         "storage_location": payload.get("storage_location", ""),
+        "quantity": float(payload.get("quantity", 4.0)),
+        "price_per_unit": float(payload.get("price_per_unit", 0.0)),
+        "total_price": float(payload.get("total_price", 0.0) or (float(payload.get("quantity", 4.0)) * float(payload.get("price_per_unit", 0.0)))),
         "is_active": is_active,
         "install_date": payload.get("install_date", today if is_active else ""),
         "install_mileage": int(payload.get("install_mileage", current_car_km if is_active else 0))
