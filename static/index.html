@@ -2259,7 +2259,58 @@
             lucide.createIcons();
         });
     
-                // =========================================================================
+                
+        // =========================================================================
+        // BACKUP & MOBILE SYNC HANDLERS
+        // =========================================================================
+        async function handleImportBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            requireAuth(async () => {
+                const statusMsg = document.getElementById('import-status-msg');
+                if (statusMsg) statusMsg.innerHTML = '<span class="text-blue-500 font-semibold">Чтение и проверка файла...</span>';
+
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const jsonData = JSON.parse(e.target.result);
+                            
+                            const res = await fetch('/api/import-json', {
+                                method: 'POST',
+                                headers: getAuthHeaders(),
+                                body: JSON.stringify(jsonData)
+                            });
+
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (statusMsg) {
+                                    statusMsg.innerHTML = `<span class="text-emerald-500 font-semibold">✓ ${data.message} Загружено машин: ${data.vehicles_count}, записей ТО: ${data.records_count}</span>`;
+                                }
+                                alert('База данных успешно импортирована! Все автомобили и история обновлены.');
+                                fetchVehicles();
+                                fetchAll();
+                            } else {
+                                const err = await res.json();
+                                if (statusMsg) statusMsg.innerHTML = `<span class="text-rose-500 font-semibold">Ошибка: ${err.detail || 'Неверный формат бэкапа'}</span>`;
+                                alert('Ошибка импорта: ' + (err.detail || 'Не удалось применить бэкап'));
+                            }
+                        } catch (parseErr) {
+                            if (statusMsg) statusMsg.innerHTML = '<span class="text-rose-500 font-semibold">Ошибка: Некорректный JSON-файл</span>';
+                            alert('Выбран некорректный JSON-файл');
+                        }
+                    };
+                    reader.readAsText(file);
+                } catch (err) {
+                    console.error(err);
+                    alert('Не удалось прочитать файл');
+                }
+            });
+            event.target.value = ''; // Reset input
+        }
+
+        // =========================================================================
         // CUSTOM RECORD / EXPENSE / UPGRADE FUNCTIONS
         // =========================================================================
         function openCustomRecordModal(record = null) {

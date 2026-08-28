@@ -5,6 +5,7 @@ import secrets
 import shutil
 import tempfile
 import urllib.parse
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Header, Depends, status
@@ -1218,15 +1219,104 @@ def export_excel():
         }
     )
 
+# --- BACKUP / SYNC ENDPOINTS (100% COMPATIBLE WITH MOBILE APP) ---
 @app.get("/api/export-json")
+@app.get("/api/backup/export")
 def export_json():
     db = load_db()
+    vehicle = get_active_vehicle(db)
+    vehicles = db.setdefault("vehicles", [])
+    
+    # Ensure active vehicle is up to date in vehicles array
+    for v in vehicles:
+        if v.get("id") == vehicle.get("id"):
+            v.update(vehicle)
+            
+    backup_data = {
+        "version": "2.5",
+        "app": "car-maintenance-app",
+        "exported_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "active_vehicle_id": db.get("active_vehicle_id", "car_1"),
+        "vehicle": vehicle,
+        "vehicles": vehicles,
+        "trackers": get_vehicle_trackers(db, vehicle),
+        "maintenance_records": db.get("maintenance_records", []),
+        "reference_intervals": db.get("reference_intervals", [])
+    }
+    
+    clean_brand = "".join(c for c in vehicle.get('brand', 'авто') if c.isalnum() or c in (' ', '_', '-')).strip()
+    clean_model = "".join(c for c in vehicle.get('model', '') if c.isalnum() or c in (' ', '_', '-')).strip()
+    filename = f"backup_{clean_brand}_{clean_model}.json"
+    encoded_filename = urllib.parse.quote(filename)
+    
     return JSONResponse(
-        content=db,
-        headers={"Content-Disposition": "attachment; filename=maintenance_backup.json"}
+        content=backup_data,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
     )
 
-# Mount static files
+@app.post("/api/import-json")
+@app.post("/api/backup/import")
+def import_json(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
+    if not payload:
+        raise HTTPException(status_code=400, detail="Пустой файл бэкапа")
+        
+    db = load_db()
+    
+    # Restore vehicles
+    if "vehicles" in payload and isinstance(payload["vehicles"], list) and len(payload["vehicles"]) > 0:
+        db["vehicles"] = payload["vehicles"]
+    elif "vehicle" in payload and isinstance(payload["vehicle"], dict):
+        v = payload["vehicle"]
+        if "id" not in v:
+            v["id"] = "car_1"
+        db["vehicles"] = [v]
+        
+    if "active_vehicle_id" in payload:
+        db["active_vehicle_id"] = payload["active_vehicle_id"]
+    elif "vehicles" in db and len(db["vehicles"]) > 0:
+        db["active_vehicle_id"] = db["vehicles"][0].get("id", "car_1")
+        
+    # Restore vehicle main object
+    if "vehicle" in payload and isinstance(payload["vehicle"], dict):
+        db["vehicle"] = payload["vehicle"]
+    elif "vehicles" in db and len(db["vehicles"]) > 0:
+        db["vehicle"] = db["vehicles"][0]
+        
+    # Restore maintenance records
+    if "maintenance_records" in payload and isinstance(payload["maintenance_records"], list):
+        # Normalize records: ensure ids and vehicle_ids
+        records = []
+        for idx, r in enumerate(payload["maintenance_records"], start=1):
+            if not isinstance(r, dict): continue
+            r_norm = dict(r)
+            if "id" not in r_norm or not r_norm["id"]:
+                r_norm["id"] = idx
+            if "vehicle_id" not in r_norm or not r_norm["vehicle_id"]:
+                r_norm["vehicle_id"] = db.get("active_vehicle_id", "car_1")
+            records.append(r_norm)
+        db["maintenance_records"] = records
+        
+    # Restore trackers
+    if "trackers" in payload and isinstance(payload["trackers"], list):
+        db["trackers"] = payload["trackers"]
+        
+    if "reference_intervals" in payload and isinstance(payload["reference_intervals"], list):
+        db["reference_intervals"] = payload["reference_intervals"]
+        
+    save_db(db)
+    
+    return {
+        "status": "success",
+        "message": "База данных и настройки успешно восстановлены!",
+        "vehicles_count": len(db.get("vehicles", [])),
+        "records_count": len(db.get("maintenance_records", [])),
+        "active_vehicle_id": db.get("active_vehicle_id")
+    }
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 if __name__ == "__main__":
