@@ -1425,7 +1425,7 @@ def save_tyre(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
                 t["is_active"] = False
                 
     tyre_data = {
-        "id": t_id or f"tyre_{int(datetime.now().timestamp())}",
+        "id": t_id or f"tyre_{int(datetime.now().timestamp())}_{secrets.token_hex(2)}",
         "vehicle_id": v_id,
         "name": payload.get("name", "Комплект шин"),
         "season": payload.get("season", "summer"),
@@ -1472,7 +1472,7 @@ def swap_tyres(season: str, auth: bool = Depends(require_admin)):
     for t in tyres:
         if t.get("vehicle_id", "car_1") != v_id:
             continue
-        if t.get("is_active"):
+        if t.get("is_active") and t.get("season") != season:
             install_km = t.get("install_mileage", 0)
             session_km = max(0, current_km - install_km)
             t["current_km"] = t.get("current_km", 0) + session_km
@@ -1538,7 +1538,7 @@ def save_insurance(payload: Dict[str, Any], auth: bool = Depends(require_admin))
     
     ins_id = payload.get("id")
     ins_data = {
-        "id": ins_id or f"ins_{int(datetime.now().timestamp())}",
+        "id": ins_id or f"ins_{int(datetime.now().timestamp())}_{secrets.token_hex(2)}",
         "vehicle_id": v_id,
         "type": payload.get("type", "osago"),
         "name": payload.get("name", "ОСАГО"),
