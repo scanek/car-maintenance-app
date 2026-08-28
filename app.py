@@ -452,8 +452,28 @@ def get_status():
     
     attention_count = sum(1 for c in consumables_status if c["status_code"] in ["danger", "warning"])
     
+    # Calculate active tyre details
+    active_tyre = None
+    tyres = db.get("tyre_sets", [])
+    v_id = vehicle.get("id", "car_1")
+    for t in tyres:
+        if t.get("vehicle_id", "car_1") == v_id and t.get("is_active"):
+            session_km = max(0, current_km - t.get("install_mileage", current_km))
+            active_tyre = {
+                "id": t.get("id"),
+                "name": t.get("name"),
+                "season": t.get("season"),
+                "size": t.get("size"),
+                "brand_model": t.get("brand_model", ""),
+                "current_km": t.get("current_km", 0) + session_km,
+                "tread_depth_mm": t.get("tread_depth_mm", 8.0),
+                "install_date": t.get("install_date", "")
+            }
+            break
+
     return {
         "vehicle": vehicle,
+        "active_tyre": active_tyre,
         "kpi": {
             "current_km": current_km,
             "current_hours": current_hours,
@@ -1241,7 +1261,8 @@ def export_json():
         "vehicles": vehicles,
         "trackers": get_vehicle_trackers(db, vehicle),
         "maintenance_records": db.get("maintenance_records", []),
-        "reference_intervals": db.get("reference_intervals", [])
+        "reference_intervals": db.get("reference_intervals", []),
+        "tyre_sets": db.get("tyre_sets", [])
     }
     
     clean_brand = "".join(c for c in vehicle.get('brand', 'авто') if c.isalnum() or c in (' ', '_', '-')).strip()
@@ -1306,6 +1327,9 @@ def import_json(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
     if "reference_intervals" in payload and isinstance(payload["reference_intervals"], list):
         db["reference_intervals"] = payload["reference_intervals"]
         
+    if "tyre_sets" in payload and isinstance(payload["tyre_sets"], list):
+        db["tyre_sets"] = payload["tyre_sets"]
+        
     save_db(db)
     
     return {
@@ -1318,6 +1342,89 @@ def import_json(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# --- TYRE SETS ENDPOINTS ---
+@app.get("/api/tyres")
+def get_tyres():
+    db = load_db()
+    v_id = get_active_vehicle(db).get("id", "car_1")
+    return [t for t in db.get("tyre_sets", []) if t.get("vehicle_id", "car_1") == v_id]
+
+@app.post("/api/tyres")
+def save_tyre(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
+    db = load_db()
+    car = get_active_vehicle(db)
+    v_id = car.get("id", "car_1")
+    tyres = db.setdefault("tyre_sets", [])
+    
+    t_id = payload.get("id")
+    is_active = bool(payload.get("is_active", False))
+    current_car_km = car.get("current_km", 0)
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    if is_active:
+        for t in tyres:
+            if t.get("vehicle_id", "car_1") == v_id:
+                t["is_active"] = False
+                
+    tyre_data = {
+        "id": t_id or f"tyre_{int(datetime.now().timestamp())}",
+        "vehicle_id": v_id,
+        "name": payload.get("name", "Комплект шин"),
+        "season": payload.get("season", "summer"),
+        "size": payload.get("size", "225/55 R19"),
+        "brand_model": payload.get("brand_model", ""),
+        "current_km": int(payload.get("current_km", 0)),
+        "tread_depth_mm": float(payload.get("tread_depth_mm", 8.0)),
+        "storage_location": payload.get("storage_location", ""),
+        "is_active": is_active,
+        "install_date": payload.get("install_date", today if is_active else ""),
+        "install_mileage": int(payload.get("install_mileage", current_car_km if is_active else 0))
+    }
+    
+    idx = next((i for i, t in enumerate(tyres) if t.get("id") == t_id and t.get("vehicle_id", "car_1") == v_id), None)
+    if idx is not None:
+        tyres[idx].update(tyre_data)
+    else:
+        tyres.append(tyre_data)
+        
+    save_db(db)
+    return {"status": "success", "tyre": tyre_data}
+
+@app.delete("/api/tyres/{tyre_id}")
+def delete_tyre(tyre_id: str, auth: bool = Depends(require_admin)):
+    db = load_db()
+    v_id = get_active_vehicle(db).get("id", "car_1")
+    tyres = db.get("tyre_sets", [])
+    db["tyre_sets"] = [t for t in tyres if not (t.get("id") == tyre_id and t.get("vehicle_id", "car_1") == v_id)]
+    save_db(db)
+    return {"status": "deleted", "id": tyre_id}
+
+@app.post("/api/tyres/swap/{season}")
+def swap_tyres(season: str, auth: bool = Depends(require_admin)):
+    db = load_db()
+    car = get_active_vehicle(db)
+    v_id = car.get("id", "car_1")
+    current_km = car.get("current_km", 0)
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    tyres = db.setdefault("tyre_sets", [])
+    for t in tyres:
+        if t.get("vehicle_id", "car_1") != v_id:
+            continue
+        if t.get("is_active"):
+            install_km = t.get("install_mileage", 0)
+            session_km = max(0, current_km - install_km)
+            t["current_km"] = t.get("current_km", 0) + session_km
+            t["is_active"] = False
+        elif t.get("season") == season:
+            t["is_active"] = True
+            t["install_date"] = today
+            t["install_mileage"] = current_km
+            
+    save_db(db)
+    return {"status": "success", "active_season": season}
+
 
 if __name__ == "__main__":
     import uvicorn

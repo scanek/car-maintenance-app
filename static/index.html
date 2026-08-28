@@ -159,6 +159,10 @@
                 <i data-lucide="calendar-check" class="w-4 h-4"></i>
                 <span>События ТО (<span id="tab-to-count">2</span>)</span>
             </button>
+            <button onclick="switchTab('tyres')" id="tab-btn-tyres" class="py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="disc-3" class="w-4 h-4"></i>
+                <span>Шины и Колеса</span>
+            </button>
             <button onclick="switchTab('all-parts')" id="tab-btn-all-parts" class="py-2.5 tab-inactive flex items-center gap-1.5 whitespace-nowrap">
                 <i data-lucide="clipboard-list" class="w-4 h-4"></i>
                 <span>Журнал всех деталей</span>
@@ -300,6 +304,51 @@
 
             <!-- TO Groups List Container -->
             <div class="space-y-4" id="to-groups-container">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        
+        <!-- ============================================================= -->
+        <!-- TAB: TYRE & WHEEL MANAGER -->
+        <!-- ============================================================= -->
+        <div id="tab-content-tyres" class="space-y-6 hidden">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i data-lucide="disc-3" class="w-5 h-5 text-blue-500 dark:text-blue-400"></i>
+                        <span>Менеджер сезонных шин и колес</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Учет комплектов резины, сезонного наката и глубины протектора</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="openTyreModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>+ Комплект шин</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Fast Season Swap Card -->
+            <div class="bg-white dark:bg-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 text-blue-500"></i>
+                        <span>Сезонная переобувка в 1 клик:</span>
+                    </h3>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button onclick="handleSeasonSwap('summer')" class="py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition">
+                        <span>☀️ Установить Летний комплект</span>
+                    </button>
+                    <button onclick="handleSeasonSwap('winter')" class="py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition">
+                        <span>❄️ Установить Зимний комплект</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tyres Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="tyres-grid">
                 <!-- Populated dynamically -->
             </div>
         </div>
@@ -2302,6 +2351,179 @@
         });
     
                 
+        
+        // =========================================================================
+        // TYRES LOGIC & MODAL
+        // =========================================================================
+        let currentTyresList = [];
+
+        async function renderTyresGrid() {
+            try {
+                const res = await fetch('/api/tyres');
+                if (!res.ok) return;
+                currentTyresList = await res.json();
+                const grid = document.getElementById('tyres-grid');
+                if (!grid) return;
+                grid.innerHTML = '';
+                
+                if (currentTyresList.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-xs space-y-3">
+                            <p>Нет добавленных комплектов шин для этого автомобиля.</p>
+                            <button onclick="openTyreModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs inline-flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                <span>+ Добавить комплект шин</span>
+                            </button>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                currentTyresList.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-white dark:bg-slate-900 border ' + (t.is_active ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200 dark:border-slate-800') + ' rounded-2xl p-5 shadow-sm space-y-3 relative hover:border-slate-300 dark:hover:border-slate-700 transition';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-2xl leading-none">${t.season === 'summer' ? '☀️' : (t.season === 'winter' ? '❄️' : '🌦️')}</span>
+                                <div>
+                                    <h4 class="font-bold text-sm text-slate-900 dark:text-white">${t.name}</h4>
+                                    <span class="text-[11px] font-mono text-blue-600 dark:text-blue-400 font-bold">${t.size}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                ${t.is_active ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">УСТАНОВЛЕН</span>' : ''}
+                                <button onclick="openTyreModal('${t.id}')" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700" title="Редактировать">
+                                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-2.5">
+                            <div class="flex justify-between">
+                                <span>Модель:</span>
+                                <span class="font-semibold text-slate-800 dark:text-slate-200">${t.brand_model || '—'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Накат комплекта:</span>
+                                <span class="font-bold text-blue-600 dark:text-blue-400">${Number(t.current_km || 0).toLocaleString('ru-RU')} км</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Глубина протектора:</span>
+                                <span class="font-bold text-emerald-600 dark:text-emerald-400">${t.tread_depth_mm || 8.0} мм</span>
+                            </div>
+                            ${t.storage_location ? `<div class="flex justify-between text-[11px] text-slate-400"><span>Хранение:</span><span>${t.storage_location}</span></div>` : ''}
+                        </div>
+                        <div class="flex items-center justify-between pt-1 gap-2">
+                            ${!t.is_active ? `<button onclick="handleSeasonSwap('${t.season}')" class="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition">Установить на авто</button>` : '<div class="text-xs text-emerald-500 font-semibold flex items-center gap-1">✓ Активный комплект</div>'}
+                        </div>
+                    `;
+                    grid.appendChild(div);
+                });
+                lucide.createIcons();
+            } catch (e) { console.error('Render tyres error:', e); }
+        }
+
+        function openTyreModal(tyreId = null) {
+            document.getElementById('tyre-id').value = '';
+            document.getElementById('tyre-name').value = '';
+            document.getElementById('tyre-season').value = 'summer';
+            document.getElementById('tyre-size').value = '225/55 R19';
+            document.getElementById('tyre-brand').value = '';
+            document.getElementById('tyre-km').value = '0';
+            document.getElementById('tyre-depth').value = '8.0';
+            document.getElementById('tyre-storage').value = '';
+            document.getElementById('tyre-active').checked = false;
+            document.getElementById('tyre-delete-btn').classList.add('hidden');
+
+            if (tyreId) {
+                const t = currentTyresList.find(x => x.id === tyreId);
+                if (t) {
+                    document.getElementById('tyre-id').value = t.id;
+                    document.getElementById('tyre-name').value = t.name || '';
+                    document.getElementById('tyre-season').value = t.season || 'summer';
+                    document.getElementById('tyre-size').value = t.size || '';
+                    document.getElementById('tyre-brand').value = t.brand_model || '';
+                    document.getElementById('tyre-km').value = t.current_km || 0;
+                    document.getElementById('tyre-depth').value = t.tread_depth_mm || 8.0;
+                    document.getElementById('tyre-storage').value = t.storage_location || '';
+                    document.getElementById('tyre-active').checked = !!t.is_active;
+                    document.getElementById('tyre-delete-btn').classList.remove('hidden');
+                }
+            }
+            document.getElementById('tyre-modal').classList.remove('hidden');
+        }
+
+        function closeTyreModal() { document.getElementById('tyre-modal').classList.add('hidden'); }
+
+        async function saveTyreForm(e) {
+            e.preventDefault();
+            requireAuth(async () => {
+                const payload = {
+                    id: document.getElementById('tyre-id').value || null,
+                    name: document.getElementById('tyre-name').value.trim(),
+                    season: document.getElementById('tyre-season').value,
+                    size: document.getElementById('tyre-size').value.trim(),
+                    brand_model: document.getElementById('tyre-brand').value.trim(),
+                    current_km: parseInt(document.getElementById('tyre-km').value) || 0,
+                    tread_depth_mm: parseFloat(document.getElementById('tyre-depth').value) || 8.0,
+                    storage_location: document.getElementById('tyre-storage').value.trim(),
+                    is_active: document.getElementById('tyre-active').checked
+                };
+                try {
+                    const res = await fetch('/api/tyres', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        closeTyreModal();
+                        fetchAll();
+                        renderTyresGrid();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert('Ошибка сохранения шин: ' + (err.detail || res.statusText));
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Сетевая ошибка при сохранении комплекта шин');
+                }
+            });
+        }
+
+        async function deleteTyreCurrent() {
+            const id = document.getElementById('tyre-id').value;
+            if (!id) return;
+            requireAuth(async () => {
+                if (!confirm('Удалить этот комплект шин?')) return;
+                try {
+                    const res = await fetch('/api/tyres/' + id, { method: 'DELETE', headers: getAuthHeaders() });
+                    if (res.ok) {
+                        closeTyreModal();
+                        fetchAll();
+                        renderTyresGrid();
+                    } else {
+                        alert('Ошибка при удалении комплекта');
+                    }
+                } catch (e) { alert('Сетевая ошибка при удалении'); }
+            });
+        }
+
+        async function handleSeasonSwap(season) {
+            requireAuth(async () => {
+                try {
+                    const res = await fetch('/api/tyres/swap/' + season, { method: 'POST', headers: getAuthHeaders() });
+                    if (res.ok) {
+                        fetchAll();
+                        renderTyresGrid();
+                        alert('Сезонная смена комплекта выполнена успешно!');
+                    } else {
+                        alert('Не удалось сменить сезон');
+                    }
+                } catch (e) { alert('Сетевая ошибка'); }
+            });
+        }
+
         // =========================================================================
         // BACKUP & MOBILE SYNC HANDLERS
         // =========================================================================
