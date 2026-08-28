@@ -1123,19 +1123,25 @@ def export_excel():
                     
     # Log Total row
     log_tot_row = len(records) + 6
-    ws_log.cell(row=log_tot_row, column=2, value="ИТОГО:").font = font_bold
-    ws_log.cell(row=log_tot_row, column=2).fill = fill_total
-    ws_log.cell(row=log_tot_row, column=2).border = thin_border
+    c_itogo = ws_log.cell(row=log_tot_row, column=2, value="ИТОГО:")
+    c_itogo.font = font_bold
+    c_itogo.fill = fill_total
+    c_itogo.border = thin_border
+    c_itogo.alignment = Alignment(horizontal="center", vertical="center")
     
-    for ci in range(3, 14):
+    for ci in range(3, 20):
         c = ws_log.cell(row=log_tot_row, column=ci)
         c.fill = fill_total
         c.border = thin_border
         if ci == 14: # Column N (Сумма ₽)
             c.value = f"=SUM(N6:N{log_tot_row-1})"
-            c.font = font_bold
+            c.font = Font(name="Segoe UI", size=10, bold=True, color="047857")
             c.number_format = '#,##0 "₽"'
-            c.alignment = Alignment(horizontal="right")
+            c.alignment = Alignment(horizontal="right", vertical="center")
+        elif ci == 3: # Column C (Количество записей)
+            c.value = f"{len(records)} поз."
+            c.font = font_bold
+            c.alignment = Alignment(horizontal="center", vertical="center")
             
     # -------------------------------------------------------------
     # SHEET 4: РЕГЛАМЕНТЫ И СПРАВОЧНИК
