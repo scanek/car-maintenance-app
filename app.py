@@ -364,8 +364,12 @@ def get_status():
     tyres = db.get("tyre_sets", [])
     tyres_spent = sum((t.get("total_price") or (float(t.get("quantity", 4.0)) * float(t.get("price_per_unit", 0.0))) or 0) for t in tyres if t.get("vehicle_id", "car_1") == v_id)
     
-    # 4. Total overall vehicle expenses
-    total_all_spent = to_spent + custom_spent + int(tyres_spent)
+    # 4. Insurances spent
+    ins_list = db.get("insurances", [])
+    ins_spent = sum(float(item.get("price", 0.0)) for item in ins_list if item.get("vehicle_id", "car_1") == v_id)
+    
+    # 5. Total overall vehicle expenses
+    total_all_spent = to_spent + custom_spent + int(tyres_spent) + int(ins_spent)
     
     cost_per_km_all = round(total_all_spent / current_km, 2) if current_km > 0 else 0
     cost_per_km_to = round(to_spent / current_km, 2) if current_km > 0 else 0
@@ -480,15 +484,46 @@ def get_status():
             }
             break
 
+    today_date = datetime.now().date()
+    active_insurances = []
+    for ins in ins_list:
+        if ins.get("vehicle_id", "car_1") == v_id and ins.get("is_active", True):
+            days_left = None
+            st_code = "ok"
+            st_text = "Действует"
+            if ins.get("end_date"):
+                try:
+                    ed = datetime.strptime(ins["end_date"], "%Y-%m-%d").date()
+                    days_left = (ed - today_date).days
+                    if days_left <= 0:
+                        st_code = "danger"
+                        st_text = "Истекла"
+                    elif days_left <= 30:
+                        st_code = "warning"
+                        st_text = f"Осталось {days_left} дн"
+                    else:
+                        st_code = "ok"
+                        st_text = f"Осталось {days_left} дн"
+                except Exception:
+                    pass
+            active_insurances.append({
+                **ins,
+                "days_left": days_left,
+                "status_code": st_code,
+                "status_text": st_text
+            })
+
     return {
         "vehicle": vehicle,
         "active_tyre": active_tyre,
+        "active_insurances": active_insurances,
         "kpi": {
             "current_km": current_km,
             "current_hours": current_hours,
             "to_spent": int(to_spent),
             "custom_spent": int(custom_spent),
             "tyres_spent": int(tyres_spent),
+            "insurances_spent": int(ins_spent),
             "total_spent": int(to_spent),
             "total_all_spent": int(total_all_spent),
             "cost_per_km": cost_per_km_all,
@@ -1280,7 +1315,8 @@ def export_json():
         "trackers": get_vehicle_trackers(db, vehicle),
         "maintenance_records": db.get("maintenance_records", []),
         "reference_intervals": db.get("reference_intervals", []),
-        "tyre_sets": db.get("tyre_sets", [])
+        "tyre_sets": db.get("tyre_sets", []),
+        "insurances": db.get("insurances", [])
     }
     
     clean_brand = "".join(c for c in vehicle.get('brand', 'авто') if c.isalnum() or c in (' ', '_', '-')).strip()
@@ -1347,6 +1383,9 @@ def import_json(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
         
     if "tyre_sets" in payload and isinstance(payload["tyre_sets"], list):
         db["tyre_sets"] = payload["tyre_sets"]
+        
+    if "insurances" in payload and isinstance(payload["insurances"], list):
+        db["insurances"] = payload["insurances"]
         
     save_db(db)
     
@@ -1445,6 +1484,90 @@ def swap_tyres(season: str, auth: bool = Depends(require_admin)):
             
     save_db(db)
     return {"status": "success", "active_season": season}
+
+
+# --- INSURANCES & DOCUMENTS ENDPOINTS ---
+@app.get("/api/insurances")
+def get_insurances():
+    db = load_db()
+    v_id = get_active_vehicle(db).get("id", "car_1")
+    today = datetime.now().date()
+    items = []
+    
+    for ins in db.get("insurances", []):
+        if ins.get("vehicle_id", "car_1") != v_id:
+            continue
+        
+        # Calculate days remaining
+        end_date_str = ins.get("end_date", "")
+        days_left = None
+        status_code = "ok"
+        status_text = "Действует"
+        
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                days_left = (end_date - today).days
+                if days_left <= 0:
+                    status_code = "danger"
+                    status_text = "Истекла"
+                elif days_left <= 30:
+                    status_code = "warning"
+                    status_text = f"Осталось {days_left} дн"
+                else:
+                    status_code = "ok"
+                    status_text = f"Осталось {days_left} дн"
+            except Exception:
+                pass
+                
+        items.append({
+            **ins,
+            "days_left": days_left,
+            "status_code": status_code,
+            "status_text": status_text
+        })
+        
+    return items
+
+@app.post("/api/insurances")
+def save_insurance(payload: Dict[str, Any], auth: bool = Depends(require_admin)):
+    db = load_db()
+    car = get_active_vehicle(db)
+    v_id = car.get("id", "car_1")
+    ins_list = db.setdefault("insurances", [])
+    
+    ins_id = payload.get("id")
+    ins_data = {
+        "id": ins_id or f"ins_{int(datetime.now().timestamp())}",
+        "vehicle_id": v_id,
+        "type": payload.get("type", "osago"),
+        "name": payload.get("name", "ОСАГО"),
+        "company": payload.get("company", ""),
+        "policy_number": payload.get("policy_number", ""),
+        "start_date": payload.get("start_date", ""),
+        "end_date": payload.get("end_date", ""),
+        "price": float(payload.get("price", 0.0)),
+        "note": payload.get("note", ""),
+        "is_active": bool(payload.get("is_active", True))
+    }
+    
+    idx = next((i for i, item in enumerate(ins_list) if item.get("id") == ins_id and item.get("vehicle_id", "car_1") == v_id), None)
+    if idx is not None:
+        ins_list[idx].update(ins_data)
+    else:
+        ins_list.append(ins_data)
+        
+    save_db(db)
+    return {"status": "success", "insurance": ins_data}
+
+@app.delete("/api/insurances/{ins_id}")
+def delete_insurance(ins_id: str, auth: bool = Depends(require_admin)):
+    db = load_db()
+    v_id = get_active_vehicle(db).get("id", "car_1")
+    ins_list = db.get("insurances", [])
+    db["insurances"] = [item for item in ins_list if not (item.get("id") == ins_id and item.get("vehicle_id", "car_1") == v_id)]
+    save_db(db)
+    return {"status": "deleted", "id": ins_id}
 
 
 if __name__ == "__main__":

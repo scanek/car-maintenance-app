@@ -249,6 +249,60 @@
                 </div>
             </section>
 
+                        <!-- Quick Status Widgets Grid (Active Tyres & Active Insurances) -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Widget 1: Active Tyres -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between gap-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="disc-3" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-[11px] text-slate-400 font-medium">Установленные шины</div>
+                                <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate" id="kpi-active-tyre-name">
+                                    <span>☀️ Летний комплект R19</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('tyres')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition flex items-center gap-1 shadow-sm flex-shrink-0">
+                            <span>Шины →</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                        <div class="text-slate-500 dark:text-slate-400">Накат: <strong class="text-blue-600 dark:text-blue-400 font-bold" id="kpi-active-tyre-km">12 500 км</strong></div>
+                        <div class="text-slate-500 dark:text-slate-400">Остаток: <strong class="text-emerald-500 font-bold" id="kpi-active-tyre-depth">7.8 мм</strong></div>
+                    </div>
+                </div>
+
+                <!-- Widget 2: Active Insurances (ОСАГО / КАСКО) -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between gap-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="shield" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-[11px] text-slate-400 font-medium">Страхование и Полисы</div>
+                                <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate" id="kpi-insurance-title">
+                                    <span>ОСАГО & КАСКО</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="openInsuranceModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1 flex-shrink-0">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>Полис</span>
+                        </button>
+                    </div>
+                    <div id="kpi-insurances-list" class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+                        <div class="text-slate-400 text-xs flex justify-between items-center">
+                            <span>Нет добавленных страховок</span>
+                            <button onclick="openInsuranceModal()" class="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold">+ Добавить полис</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Consumables Wear Status Section (Traffic Light Gauges) -->
             <section class="space-y-4">
                 <div class="flex items-center justify-between flex-wrap gap-2">
@@ -542,6 +596,85 @@
         <!-- ============================================================= -->
     <!-- MODAL: TYRE SET CREATION & EDITING -->
     <!-- ============================================================= -->
+        <!-- ============================================================= -->
+    <!-- MODAL: INSURANCE CREATION & EDITING -->
+    <!-- ============================================================= -->
+    <div id="insurance-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-3.5 shadow-2xl max-h-[90vh] overflow-y-auto modal-scroll">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2" id="ins-modal-title">
+                    <i data-lucide="shield" class="w-5 h-5 text-emerald-500"></i>
+                    <span>Страховой полис</span>
+                </h3>
+                <button type="button" onclick="closeInsuranceModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="saveInsuranceForm(event)" class="space-y-3.5 text-xs">
+                <input type="hidden" id="ins-id" value="">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Тип полиса / документа</label>
+                        <select id="ins-type" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500">
+                            <option value="osago">🛡️ ОСАГО</option>
+                            <option value="kasko">🚘 КАСКО</option>
+                            <option value="inspection">📑 Техосмотр / ДК</option>
+                            <option value="other">📄 Другой документ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Страховая компания</label>
+                        <input type="text" id="ins-company" placeholder="АльфаСтрахование / Т-Страхование"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Название полиса (кратко)</label>
+                    <input type="text" id="ins-name" required placeholder="Например: ОСАГО на 1 год (без ограничений)"
+                        class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Серия и номер полиса</label>
+                    <input type="text" id="ins-number" placeholder="ХХХ 0123456789"
+                        class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono font-bold outline-none focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Дата начала</label>
+                        <input type="date" id="ins-start-date" required
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Срок окончания действия</label>
+                        <input type="date" id="ins-end-date" required
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Стоимость полиса (₽)</label>
+                    <input type="number" id="ins-price" required placeholder="8450"
+                        class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold text-emerald-600 outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Заметки / Условия / Телефон агента</label>
+                    <input type="text" id="ins-note" placeholder="КБМ 0.46 • Контакты агента"
+                        class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                </div>
+                <div class="flex items-center gap-2 pt-1">
+                    <input type="checkbox" id="ins-active" checked class="w-4 h-4 rounded text-blue-600">
+                    <label for="ins-active" class="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">Полис активен</label>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" id="ins-delete-btn" onclick="deleteInsuranceCurrent()" class="text-rose-500 hover:text-rose-400 font-bold hidden">Удалить полис</button>
+                    <div class="flex gap-2 ml-auto">
+                        <button type="button" onclick="closeInsuranceModal()" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">Отмена</button>
+                        <button type="submit" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20">Сохранить</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="tyre-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-3 sm:p-4">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-3.5 shadow-2xl max-h-[90vh] overflow-y-auto modal-scroll">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1036,6 +1169,7 @@
                 renderTOGroups();
                 renderTrackersSettings();
                 renderTable();
+                renderInsurancesWidget();
                 renderCharts();
             }
         }
@@ -1067,12 +1201,13 @@
 
         async function fetchAll() {
             try {
-                const [statusRes, recRes, toRes, setRes, tyresRes] = await Promise.all([
+                const [statusRes, recRes, toRes, setRes, tyresRes, insRes] = await Promise.all([
                     fetch('/api/status'),
                     fetch('/api/records'),
                     fetch('/api/to-groups'),
                     fetch('/api/settings'),
-                    fetch('/api/tyres')
+                    fetch('/api/tyres'),
+                    fetch('/api/insurances')
                 ]);
 
                 const statusData = await statusRes.json();
@@ -1080,6 +1215,7 @@
                 const toData = await toRes.json();
                 const setData = await setRes.json();
                 if (tyresRes && tyresRes.ok) currentTyresList = await tyresRes.json();
+                if (insRes && insRes.ok) currentInsurancesList = await insRes.json();
 
                 appData = {
                     vehicle: statusData.vehicle,
@@ -1099,6 +1235,7 @@
                 renderTOGroups();
                 renderTable();
                 renderTrackersSettings();
+                renderInsurancesWidget();
                 renderCharts();
             } catch (err) {
                 console.error("Fetch error:", err);
@@ -1120,6 +1257,22 @@
             if (toCountEl) toCountEl.innerText = appData.kpi.to_records_count ?? appData.kpi.total_records ?? 0;
             
             document.getElementById('kpi-cost-km').innerText = (appData.kpi.cost_per_km || 0) + ' ₽/км';
+            
+            // Active Tyre Widget
+            const activeTyre = (currentTyresList || []).find(t => t.is_active);
+            const tyreNameEl = document.getElementById('kpi-active-tyre-name');
+            const tyreKmEl = document.getElementById('kpi-active-tyre-km');
+            const tyreDepthEl = document.getElementById('kpi-active-tyre-depth');
+            if (activeTyre && tyreNameEl) {
+                const icon = activeTyre.season === 'summer' ? '☀️' : (activeTyre.season === 'winter' ? '❄️' : '🌦️');
+                tyreNameEl.innerHTML = `<span>${icon} ${activeTyre.name} (${activeTyre.size})</span>`;
+                tyreKmEl.innerText = Number(activeTyre.current_km || 0).toLocaleString('ru-RU') + ' км';
+                tyreDepthEl.innerText = (activeTyre.tread_depth_mm || 8.0) + ' мм';
+            } else if (tyreNameEl) {
+                tyreNameEl.innerHTML = '<span class="text-slate-400 font-normal">Комплект не выбран</span>';
+                tyreKmEl.innerText = '—';
+                tyreDepthEl.innerText = '—';
+            }
             const costToEl = document.getElementById('kpi-cost-km-to');
             if (costToEl) costToEl.innerText = (appData.kpi.cost_per_km_to || 0) + ' ₽/км';
 
@@ -1351,13 +1504,19 @@
                 return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">🔋 ${tag}</span>`;
             } else if (tag === 'Ремонт' || cat.includes('Ремонт')) {
                 return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">🛠️ ${tag}</span>`;
+            } else if (tag === 'ОСАГО' || tag === 'КАСКО' || cat === 'Страхование') {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">🛡️ ${tag}</span>`;
             } else {
                 return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">📦 ${tag}</span>`;
             }
         }
 
-        function editAnyRecord(id, isTyre = false) {
+        function editAnyRecord(id, isTyre = false, isIns = false) {
             const strId = String(id);
+            if (isIns || strId.startsWith('ins_')) {
+                openInsuranceModal(strId);
+                return;
+            }
             if (isTyre || strId.startsWith('tyre_')) {
                 openTyreModal(strId);
                 return;
@@ -1377,8 +1536,22 @@
             }
         }
 
-        async function deleteTableItem(id, isTyre = false) {
+        async function deleteTableItem(id, isTyre = false, isIns = false) {
             const strId = String(id);
+            if (isIns || strId.startsWith('ins_')) {
+                requireAuth(async () => {
+                    if (!confirm('Удалить этот страховой полис?')) return;
+                    try {
+                        const res = await fetch('/api/insurances/' + strId, { method: 'DELETE', headers: getAuthHeaders() });
+                        if (res.ok) {
+                            fetchAll();
+                        } else {
+                            alert('Ошибка удаления полиса');
+                        }
+                    } catch (e) { alert('Сетевая ошибка'); }
+                });
+                return;
+            }
             if (isTyre || strId.startsWith('tyre_')) {
                 requireAuth(async () => {
                     if (!confirm('Удалить этот комплект шин?')) return;
@@ -1418,9 +1591,35 @@
             const searchTerm = (document.getElementById('table-search').value || '').toLowerCase();
             const categoryFilter = document.getElementById('table-category-filter').value;
 
-            // Combine records and tyre sets for a 100% complete all-expenses journal
+            // Combine records, tyre sets, and insurances for a 100% complete all-expenses journal
             const allItems = [...(appData.records || [])];
             
+            (currentInsurancesList || []).forEach(ins => {
+                const cost = parseFloat(ins.price) || 0;
+                if (cost > 0) {
+                    const icon = ins.type === 'osago' ? 'ОСАГО' : (ins.type === 'kasko' ? 'КАСКО' : (ins.type === 'inspection' ? 'Техосмотр' : 'Документ'));
+                    allItems.push({
+                        id: ins.id,
+                        is_insurance_item: true,
+                        to_tag: icon,
+                        category: 'Страхование',
+                        date: ins.start_date || 'Полис',
+                        mileage: appData.kpi?.current_km || 0,
+                        engine_hours: appData.kpi?.current_hours || 0,
+                        item_name: `Полис ${icon}: ${ins.company || ''} ${ins.name || ''}`,
+                        brand: ins.company || 'Страховая',
+                        article: ins.policy_number || '',
+                        quantity: 1,
+                        unit: 'полис',
+                        total_price: cost,
+                        price_per_unit: cost,
+                        store: ins.company || 'Страховая',
+                        url: '',
+                        note: `Срок действия: до ${ins.end_date || '—'} (${ins.status_text || 'Действует'}) • ${ins.note || ''}`
+                    });
+                }
+            });
+
             (currentTyresList || []).forEach(t => {
                 const cost = parseFloat(t.total_price) || (parseFloat(t.quantity || 4) * parseFloat(t.price_per_unit || 0)) || 0;
                 if (cost > 0) {
@@ -1505,10 +1704,10 @@
                     </td>
                     <td class="px-4 py-3">${linkHtml}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <button onclick="editAnyRecord('${r.id}', ${!!r.is_tyre_item})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
+                        <button onclick="editAnyRecord('${r.id}', ${!!r.is_tyre_item}, ${!!r.is_insurance_item})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="deleteTableItem('${r.id}', ${!!r.is_tyre_item})" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
+                        <button onclick="deleteTableItem('${r.id}', ${!!r.is_tyre_item}, ${!!r.is_insurance_item})" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </td>
@@ -1545,6 +1744,18 @@
             });
             if (tyresTotalCost > 0) {
                 categorySums['Шины и Колеса'] = (categorySums['Шины и Колеса'] || 0) + tyresTotalCost;
+            }
+
+            // Include Insurances in Category Breakdown
+            let insTotalCost = 0;
+            (currentInsurancesList || []).forEach(item => {
+                const cost = parseFloat(item.price) || 0;
+                if (cost > 0) {
+                    insTotalCost += cost;
+                }
+            });
+            if (insTotalCost > 0) {
+                categorySums['Страхование'] = (categorySums['Страхование'] || 0) + insTotalCost;
             }
 
             const catLabels = Object.keys(categorySums);
@@ -2562,6 +2773,155 @@
     
                 
         
+        
+        // =========================================================================
+        // INSURANCES & POLICIES LOGIC
+        // =========================================================================
+        let currentInsurancesList = [];
+
+        function renderInsurancesWidget() {
+            const container = document.getElementById('kpi-insurances-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (currentInsurancesList.length === 0) {
+                container.innerHTML = `
+                    <div class="text-slate-400 text-xs flex justify-between items-center">
+                        <span>Нет добавленных страховок</span>
+                        <button onclick="openInsuranceModal()" class="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold">+ Добавить полис</button>
+                    </div>
+                `;
+                return;
+            }
+
+            currentInsurancesList.forEach(ins => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition cursor-pointer';
+                div.onclick = () => openInsuranceModal(ins.id);
+                
+                let badgeCls = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300';
+                if (ins.status_code === 'warning') badgeCls = 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300';
+                if (ins.status_code === 'danger') badgeCls = 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border-rose-300';
+
+                const icon = ins.type === 'osago' ? '🛡️ ОСАГО' : (ins.type === 'kasko' ? '🚘 КАСКО' : (ins.type === 'inspection' ? '📑 ТО' : '📄 Документ'));
+
+                div.innerHTML = `
+                    <div class="min-w-0 pr-2">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-bold text-slate-900 dark:text-white">${icon}</span>
+                            ${ins.company ? `<span class="text-[11px] text-slate-500 dark:text-slate-400">• ${ins.company}</span>` : ''}
+                            ${ins.policy_number ? `<span class="font-mono text-[10px] text-slate-400">(${ins.policy_number})</span>` : ''}
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Действует до: <strong class="text-slate-800 dark:text-slate-200">${ins.end_date || '—'}</strong>
+                            ${ins.price ? ` • <span class="font-bold text-emerald-600 dark:text-emerald-400">${Number(ins.price).toLocaleString('ru-RU')} ₽</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCls}">${ins.status_text || 'Действует'}</span>
+                        <button onclick="event.stopPropagation(); openInsuranceModal('${ins.id}')" class="p-1 rounded-lg text-slate-400 hover:text-slate-200" title="Редактировать">
+                            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function openInsuranceModal(insId = null) {
+            document.getElementById('ins-id').value = '';
+            document.getElementById('ins-type').value = 'osago';
+            document.getElementById('ins-company').value = '';
+            document.getElementById('ins-name').value = '';
+            document.getElementById('ins-number').value = '';
+            
+            const today = new Date().toISOString().split('T')[0];
+            const nextYear = new Date();
+            nextYear.setFullYear(nextYear.getFullYear() + 1);
+            const nextYearStr = nextYear.toISOString().split('T')[0];
+            
+            document.getElementById('ins-start-date').value = today;
+            document.getElementById('ins-end-date').value = nextYearStr;
+            document.getElementById('ins-price').value = '';
+            document.getElementById('ins-note').value = '';
+            document.getElementById('ins-active').checked = true;
+            document.getElementById('ins-delete-btn').classList.add('hidden');
+
+            if (insId) {
+                const item = currentInsurancesList.find(x => x.id === insId);
+                if (item) {
+                    document.getElementById('ins-id').value = item.id;
+                    document.getElementById('ins-type').value = item.type || 'osago';
+                    document.getElementById('ins-company').value = item.company || '';
+                    document.getElementById('ins-name').value = item.name || '';
+                    document.getElementById('ins-number').value = item.policy_number || '';
+                    document.getElementById('ins-start-date').value = item.start_date || today;
+                    document.getElementById('ins-end-date').value = item.end_date || nextYearStr;
+                    document.getElementById('ins-price').value = item.price || '';
+                    document.getElementById('ins-note').value = item.note || '';
+                    document.getElementById('ins-active').checked = item.is_active !== false;
+                    document.getElementById('ins-delete-btn').classList.remove('hidden');
+                }
+            }
+            document.getElementById('insurance-modal').classList.remove('hidden');
+        }
+
+        function closeInsuranceModal() { document.getElementById('insurance-modal').classList.add('hidden'); }
+
+        async function saveInsuranceForm(e) {
+            e.preventDefault();
+            requireAuth(async () => {
+                const payload = {
+                    id: document.getElementById('ins-id').value || null,
+                    type: document.getElementById('ins-type').value,
+                    company: document.getElementById('ins-company').value.trim(),
+                    name: document.getElementById('ins-name').value.trim(),
+                    policy_number: document.getElementById('ins-number').value.trim(),
+                    start_date: document.getElementById('ins-start-date').value,
+                    end_date: document.getElementById('ins-end-date').value,
+                    price: parseFloat(document.getElementById('ins-price').value) || 0.0,
+                    note: document.getElementById('ins-note').value.trim(),
+                    is_active: document.getElementById('ins-active').checked
+                };
+
+                try {
+                    const res = await fetch('/api/insurances', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        closeInsuranceModal();
+                        fetchAll();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert('Ошибка сохранения полиса: ' + (err.detail || res.statusText));
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Сетевая ошибка при сохранении полиса');
+                }
+            });
+        }
+
+        async function deleteInsuranceCurrent() {
+            const id = document.getElementById('ins-id').value;
+            if (!id) return;
+            requireAuth(async () => {
+                if (!confirm('Удалить этот страховой полис?')) return;
+                try {
+                    const res = await fetch('/api/insurances/' + id, { method: 'DELETE', headers: getAuthHeaders() });
+                    if (res.ok) {
+                        closeInsuranceModal();
+                        fetchAll();
+                    } else {
+                        alert('Ошибка при удалении полиса');
+                    }
+                } catch (e) { alert('Сетевая ошибка при удалении'); }
+            });
+        }
+
         // =========================================================================
         // TYRES LOGIC & MODAL
         // =========================================================================
