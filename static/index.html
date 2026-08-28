@@ -95,13 +95,13 @@
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5 flex-nowrap">
-                            <span id="vehicle-title" class="text-xs sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[110px] xs:max-w-[140px] sm:max-w-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">Changan CS55 Plus</span>
-                            <span id="vehicle-plate-badge" class="bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700/60 whitespace-nowrap flex-shrink-0">А 777 АА 777</span>
+                            <span id="vehicle-title" class="text-xs sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[100px] xs:max-w-[130px] sm:max-w-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">Changan CS55 Plus</span>
+                            <span id="vehicle-plate-badge" class="bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 text-[9px] sm:text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700/60 whitespace-nowrap flex-shrink-0">А 777 АА 777</span>
                         </div>
-                        <div class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
+                        <div class="text-[9px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
                             <span id="vehicle-engine-badge" class="font-medium text-blue-600 dark:text-blue-400 truncate">1.5T 7DCT</span>
                             <span>•</span>
-                            <span class="text-slate-400 dark:text-slate-500">Главная</span>
+                            <span class="text-slate-400 dark:text-slate-500">Гараж</span>
                         </div>
                     </div>
                 </button>
@@ -528,8 +528,8 @@
         <!-- ============================================================= -->
     <!-- MODAL: TYRE SET CREATION & EDITING -->
     <!-- ============================================================= -->
-    <div id="tyre-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div id="tyre-modal" class="fixed inset-0 z-50 modal-backdrop hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-3.5 shadow-2xl max-h-[90vh] overflow-y-auto modal-scroll">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                 <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2" id="tyre-modal-title">
                     <i data-lucide="disc-3" class="w-5 h-5 text-blue-500"></i>
@@ -2528,8 +2528,8 @@
                             </div>` : ''}
                             ${t.storage_location ? `<div class="flex justify-between text-[11px] text-slate-400"><span>Хранение:</span><span>${t.storage_location}</span></div>` : ''}
                         </div>
-                        <div class="flex items-center justify-between pt-1 gap-2">
-                            ${!t.is_active ? `<button onclick="handleSeasonSwap('${t.season}')" class="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition">Установить на авто</button>` : '<div class="text-xs text-emerald-500 font-semibold flex items-center gap-1">✓ Активный комплект</div>'}
+                        <div class="flex items-center justify-between pt-1.5 gap-2">
+                            ${!t.is_active ? `<button onclick="handleSeasonSwap('${t.season}')" class="w-full min-h-[36px] py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"><span>⚡ Установить на авто</span></button>` : '<div class="w-full min-h-[36px] flex items-center justify-center text-xs text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800/60 rounded-xl py-1.5 px-3">✓ Активный комплект на автомобиле</div>'}
                         </div>
                     `;
                     grid.appendChild(div);
@@ -2875,13 +2875,13 @@
     </nav>
 
     <!-- Mobile Floating Action Buttons (Quick +ТО and +Доработка on mobile) -->
-    <div class="md:hidden fixed bottom-18 right-3.5 z-40 flex flex-col gap-2.5 items-end">
-        <button onclick="openCustomRecordModal()" class="h-10 px-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xl shadow-indigo-600/30 active:scale-95 transition text-xs font-bold" title="Добавить тюнинг / шины / покупку">
-            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-200"></i>
-            <span>+ Доработка</span>
+    <div class="md:hidden fixed bottom-16 right-3 z-40 flex flex-col gap-2 items-end">
+        <button onclick="openCustomRecordModal()" class="h-9 px-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xl shadow-indigo-600/30 active:scale-95 transition text-[11px] font-bold" title="Добавить тюнинг / шины / покупку">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-200"></i>
+            <span>+ Покупка</span>
         </button>
-        <button onclick="openTOGroupModal()" class="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-xl shadow-blue-500/30 active:scale-95 transition" title="Добавить ТО">
-            <i data-lucide="plus" class="w-6 h-6"></i>
+        <button onclick="openTOGroupModal()" class="w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-xl shadow-blue-500/30 active:scale-95 transition" title="Добавить ТО">
+            <i data-lucide="plus" class="w-5 h-5"></i>
         </button>
     </div>
 
