@@ -86,20 +86,20 @@
 
     <!-- Top Navigation Header -->
     <header class="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-none">
-        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+        <div class="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4">
             <!-- Vehicle Title & Home Link (Click to go to Main Dashboard) -->
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
                 <button onclick="switchTab('dashboard')" class="flex items-center gap-2 text-left group p-1 -ml-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition min-w-0" title="На Главную (Дашборд)">
-                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex-shrink-0 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition">
-                        <i data-lucide="car" class="w-5 h-5"></i>
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex-shrink-0 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition">
+                        <i data-lucide="car" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                     </div>
                     <div class="min-w-0">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <span id="vehicle-title" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">Changan CS55 Plus</span>
-                            <span id="vehicle-plate-badge" class="bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 text-[11px] font-mono font-bold px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700/60">А 777 АА 777</span>
+                        <div class="flex items-center gap-1.5 flex-nowrap">
+                            <span id="vehicle-title" class="text-xs sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[110px] xs:max-w-[140px] sm:max-w-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">Changan CS55 Plus</span>
+                            <span id="vehicle-plate-badge" class="bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700/60 whitespace-nowrap flex-shrink-0">А 777 АА 777</span>
                         </div>
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                            <span id="vehicle-engine-badge" class="font-medium text-blue-600 dark:text-blue-400">1.5T 7DCT</span>
+                        <div class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
+                            <span id="vehicle-engine-badge" class="font-medium text-blue-600 dark:text-blue-400 truncate">1.5T 7DCT</span>
                             <span>•</span>
                             <span class="text-slate-400 dark:text-slate-500">Главная</span>
                         </div>
@@ -107,39 +107,38 @@
                 </button>
             </div>
 
-            <!-- Header Action Controls -->
-            <div class="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+            <!-- Header Action Controls (Ultra-clean and non-colliding on mobile) -->
+            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 <!-- Theme Toggle Button -->
-                <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition" title="Переключить тему">
+                <button onclick="toggleTheme()" class="w-8 h-8 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition flex items-center justify-center" title="Переключить тему">
                     <i data-lucide="sun" id="theme-icon-sun" class="w-4 h-4 hidden"></i>
                     <i data-lucide="moon" id="theme-icon-moon" class="w-4 h-4"></i>
                 </button>
 
                 <!-- Auth Status Button -->
-                <button onclick="handleAuthClick()" id="auth-btn" class="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 transition text-xs font-semibold" title="Авторизация">
+                <button onclick="handleAuthClick()" id="auth-btn" class="w-8 h-8 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition text-xs font-semibold flex items-center justify-center gap-1" title="Авторизация администратора">
                     <i data-lucide="lock" id="auth-icon-locked" class="w-3.5 h-3.5 text-amber-500"></i>
                     <i data-lucide="unlock" id="auth-icon-unlocked" class="w-3.5 h-3.5 text-emerald-500 hidden"></i>
                     <span id="auth-btn-text" class="hidden sm:inline">Войти</span>
                 </button>
 
                 <!-- Quick Update Mileage -->
-                <button onclick="openMileageModal()" class="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 transition text-xs font-medium" title="Обновить пробег">
+                <button onclick="openMileageModal()" class="w-8 h-8 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition text-xs font-medium flex items-center justify-center gap-1" title="Обновить текущий пробег и моточасы">
                     <i data-lucide="gauge" class="w-4 h-4 text-amber-500 dark:text-yellow-400"></i>
                     <span class="hidden sm:inline">Пробег</span>
                 </button>
 
                 <!-- Export Excel with Charts Button -->
-                <a href="/api/export-excel" download class="flex items-center space-x-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/80 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition text-xs shadow-sm" title="Скачать полный отчет в Excel с интерактивными графиками и аналитикой">
+                <a href="/api/export-excel" download class="w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/80 font-semibold transition text-xs shadow-sm flex items-center justify-center gap-1.5" title="Скачать отчет в Excel с графиками и аналитикой">
                     <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
-                    <span class="hidden sm:inline">Excel с графиками</span>
-                    <span class="sm:hidden">Excel</span>
+                    <span class="hidden md:inline">Excel с графиками</span>
+                    <span class="hidden sm:inline md:hidden">Excel</span>
                 </a>
 
-                <!-- Add Custom Expense / Upgrade Button (Visible on both Mobile and Desktop) -->
-                <button onclick="openCustomRecordModal()" class="flex items-center space-x-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 px-2.5 py-1.5 rounded-lg font-semibold transition text-xs" title="Добавить покупку, тюнинг, шины, аккумулятор или доработку">
+                <!-- Add Custom Expense / Upgrade Button (Desktop & Tablet only; mobile uses dedicated FAB & Dashboard quick action) -->
+                <button onclick="openCustomRecordModal()" class="hidden sm:flex items-center space-x-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition text-xs" title="Добавить покупку, тюнинг, шины, аккумулятор или доработку">
                     <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-500"></i>
-                    <span class="hidden sm:inline">+ Доработка / Покупка</span>
-                    <span class="sm:hidden">Доработка</span>
+                    <span>+ Доработка</span>
                 </button>
 
                 <!-- Add TO Group (Desktop only) -->
