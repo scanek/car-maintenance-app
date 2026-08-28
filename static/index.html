@@ -1356,19 +1356,44 @@
             }
         }
 
-        function editAnyRecord(id) {
-            const tyre = (currentTyresList || []).find(t => t.id === id);
-            if (tyre) {
-                openTyreModal(id);
+        function editAnyRecord(id, isTyre = false) {
+            const strId = String(id);
+            if (isTyre || strId.startsWith('tyre_')) {
+                openTyreModal(strId);
                 return;
             }
-            const r = (appData.records || []).find(x => x.id === id);
+            const tyre = (currentTyresList || []).find(t => String(t.id) === strId);
+            if (tyre) {
+                openTyreModal(strId);
+                return;
+            }
+            const r = (appData.records || []).find(x => String(x.id) === strId);
             if (!r) return;
             const tag = r.to_tag || '';
             if (tag.toUpperCase().startsWith('ТО')) {
-                openSingleRecordModal(id);
+                openSingleRecordModal(r.id);
             } else {
                 openCustomRecordModal(r);
+            }
+        }
+
+        async function deleteTableItem(id, isTyre = false) {
+            const strId = String(id);
+            if (isTyre || strId.startsWith('tyre_')) {
+                requireAuth(async () => {
+                    if (!confirm('Удалить этот комплект шин?')) return;
+                    try {
+                        const res = await fetch('/api/tyres/' + strId, { method: 'DELETE', headers: getAuthHeaders() });
+                        if (res.ok) {
+                            fetchAll();
+                            renderTyresGrid();
+                        } else {
+                            alert('Ошибка удаления комплекта шин');
+                        }
+                    } catch (e) { alert('Сетевая ошибка при удалении'); }
+                });
+            } else {
+                deleteRecord(id);
             }
         }
 
@@ -1480,10 +1505,10 @@
                     </td>
                     <td class="px-4 py-3">${linkHtml}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <button onclick="editAnyRecord(${r.id})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
+                        <button onclick="editAnyRecord('${r.id}', ${!!r.is_tyre_item})" class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition p-1 mr-1" title="Редактировать">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="deleteRecord(${r.id})" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
+                        <button onclick="deleteTableItem('${r.id}', ${!!r.is_tyre_item})" class="text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition p-1" title="Удалить">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </td>
