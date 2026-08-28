@@ -1546,6 +1546,8 @@ def save_insurance(payload: Dict[str, Any], auth: bool = Depends(require_admin))
         "policy_number": payload.get("policy_number", ""),
         "start_date": payload.get("start_date", ""),
         "end_date": payload.get("end_date", ""),
+        "mileage": int(payload.get("mileage", car.get("current_km", 0))),
+        "engine_hours": int(payload.get("engine_hours", car.get("current_engine_hours", 0))),
         "price": float(payload.get("price", 0.0)),
         "note": payload.get("note", ""),
         "is_active": bool(payload.get("is_active", True))

@@ -650,6 +650,18 @@
                             class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500">
                     </div>
                 </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Пробег при оформлении (км)</label>
+                        <input type="number" id="ins-mileage" placeholder="25340"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold text-blue-600 outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Моточасы (м/ч)</label>
+                        <input type="number" id="ins-hours" placeholder="772"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold text-amber-500 outline-none focus:border-blue-500">
+                    </div>
+                </div>
                 <div>
                     <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Стоимость полиса (₽)</label>
                     <input type="number" id="ins-price" required placeholder="8450"
@@ -712,6 +724,18 @@
                     <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Бренд и модель резины</label>
                     <input type="text" id="tyre-brand" placeholder="Dunlop Grandtrek ST30 / Nokian Hakkapeliitta"
                         class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Дата покупки / установки</label>
+                        <input type="date" id="tyre-install-date"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1">Пробег авто при покупке (км)</label>
+                        <input type="number" id="tyre-install-mileage" placeholder="0"
+                            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-bold text-blue-600 outline-none focus:border-blue-500">
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -1604,8 +1628,8 @@
                         to_tag: icon,
                         category: 'Страхование',
                         date: ins.start_date || 'Полис',
-                        mileage: appData.kpi?.current_km || 0,
-                        engine_hours: appData.kpi?.current_hours || 0,
+                        mileage: ins.mileage ?? appData.kpi?.current_km ?? 0,
+                        engine_hours: ins.engine_hours ?? appData.kpi?.current_hours ?? 0,
                         item_name: `Полис ${icon}: ${ins.company || ''} ${ins.name || ''}`,
                         brand: ins.company || 'Страховая',
                         article: ins.policy_number || '',
@@ -1629,8 +1653,8 @@
                         to_tag: 'Шины',
                         category: 'Шины и Колеса',
                         date: t.install_date || 'Комплект',
-                        mileage: t.install_mileage || t.current_km || appData.kpi?.current_km || 0,
-                        engine_hours: appData.kpi?.current_hours || 0,
+                        mileage: t.install_mileage ?? t.current_km ?? appData.kpi?.current_km ?? 0,
+                        engine_hours: appData.kpi?.current_hours ?? 0,
                         item_name: `Комплект шин: ${t.name} (${t.size})`,
                         brand: t.brand_model || (t.season === 'summer' ? 'Летние' : 'Зимние'),
                         article: t.size || '',
@@ -2812,8 +2836,9 @@
                             ${ins.company ? `<span class="text-[11px] text-slate-500 dark:text-slate-400">• ${ins.company}</span>` : ''}
                             ${ins.policy_number ? `<span class="font-mono text-[10px] text-slate-400">(${ins.policy_number})</span>` : ''}
                         </div>
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Действует до: <strong class="text-slate-800 dark:text-slate-200">${ins.end_date || '—'}</strong>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>Действует до: <strong class="text-slate-800 dark:text-slate-200">${ins.end_date || '—'}</strong></span>
+                            ${ins.mileage ? `<span class="text-slate-400">• при ${Number(ins.mileage).toLocaleString('ru-RU')} км</span>` : ''}
                             ${ins.price ? ` • <span class="font-bold text-emerald-600 dark:text-emerald-400">${Number(ins.price).toLocaleString('ru-RU')} ₽</span>` : ''}
                         </div>
                     </div>
@@ -2843,6 +2868,8 @@
             
             document.getElementById('ins-start-date').value = today;
             document.getElementById('ins-end-date').value = nextYearStr;
+            document.getElementById('ins-mileage').value = appData.kpi?.current_km || '';
+            document.getElementById('ins-hours').value = appData.kpi?.current_hours || '';
             document.getElementById('ins-price').value = '';
             document.getElementById('ins-note').value = '';
             document.getElementById('ins-active').checked = true;
@@ -2858,6 +2885,8 @@
                     document.getElementById('ins-number').value = item.policy_number || '';
                     document.getElementById('ins-start-date').value = item.start_date || today;
                     document.getElementById('ins-end-date').value = item.end_date || nextYearStr;
+                    document.getElementById('ins-mileage').value = item.mileage ?? appData.kpi?.current_km ?? '';
+                    document.getElementById('ins-hours').value = item.engine_hours ?? appData.kpi?.current_hours ?? '';
                     document.getElementById('ins-price').value = item.price || '';
                     document.getElementById('ins-note').value = item.note || '';
                     document.getElementById('ins-active').checked = item.is_active !== false;
@@ -2880,6 +2909,8 @@
                     policy_number: document.getElementById('ins-number').value.trim(),
                     start_date: document.getElementById('ins-start-date').value,
                     end_date: document.getElementById('ins-end-date').value,
+                    mileage: parseInt(document.getElementById('ins-mileage').value) || 0,
+                    engine_hours: parseInt(document.getElementById('ins-hours').value) || 0,
                     price: parseFloat(document.getElementById('ins-price').value) || 0.0,
                     note: document.getElementById('ins-note').value.trim(),
                     is_active: document.getElementById('ins-active').checked
@@ -2978,6 +3009,11 @@
                                 <span>Накат комплекта:</span>
                                 <span class="font-bold text-blue-600 dark:text-blue-400">${Number(t.current_km || 0).toLocaleString('ru-RU')} км</span>
                             </div>
+                            ${t.install_mileage ? `
+                            <div class="flex justify-between text-[11px] text-slate-400">
+                                <span>Куплен / Установлен на:</span>
+                                <span class="font-semibold text-slate-600 dark:text-slate-300">${Number(t.install_mileage).toLocaleString('ru-RU')} км ${t.install_date ? '(' + t.install_date + ')' : ''}</span>
+                            </div>` : ''}
                             <div class="flex justify-between">
                                 <span>Глубина протектора:</span>
                                 <span class="font-bold text-emerald-600 dark:text-emerald-400">${t.tread_depth_mm || 8.0} мм</span>
@@ -3018,6 +3054,8 @@
             document.getElementById('tyre-brand').value = '';
             document.getElementById('tyre-km').value = '0';
             document.getElementById('tyre-depth').value = '8.0';
+            document.getElementById('tyre-install-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('tyre-install-mileage').value = appData.kpi?.current_km || '0';
             document.getElementById('tyre-qty').value = '4';
             document.getElementById('tyre-price-unit').value = '';
             document.getElementById('tyre-total-price').value = '';
@@ -3035,6 +3073,8 @@
                     document.getElementById('tyre-brand').value = t.brand_model || '';
                     document.getElementById('tyre-km').value = t.current_km || 0;
                     document.getElementById('tyre-depth').value = t.tread_depth_mm || 8.0;
+                    document.getElementById('tyre-install-date').value = t.install_date || '';
+                    document.getElementById('tyre-install-mileage').value = t.install_mileage ?? '';
                     document.getElementById('tyre-qty').value = t.quantity || 4;
                     document.getElementById('tyre-price-unit').value = t.price_per_unit || '';
                     document.getElementById('tyre-total-price').value = t.total_price || '';
@@ -3059,6 +3099,8 @@
                     brand_model: document.getElementById('tyre-brand').value.trim(),
                     current_km: parseInt(document.getElementById('tyre-km').value) || 0,
                     tread_depth_mm: parseFloat(document.getElementById('tyre-depth').value) || 8.0,
+                    install_date: document.getElementById('tyre-install-date').value || '',
+                    install_mileage: parseInt(document.getElementById('tyre-install-mileage').value) || 0,
                     quantity: parseFloat(document.getElementById('tyre-qty').value) || 4.0,
                     price_per_unit: parseFloat(document.getElementById('tyre-price-unit').value) || 0.0,
                     total_price: parseFloat(document.getElementById('tyre-total-price').value) || 0.0,
