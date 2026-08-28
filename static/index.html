@@ -200,27 +200,29 @@
                     </div>
                 </div>
 
-                <!-- Card 2: Only TO Expenses (Strictly Maintenance) -->
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <!-- Card 2: Only TO Expenses (Clickable -> goes to TO Events tab) -->
+                <div onclick="switchTab('to-events')" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl p-4 sm:p-5 shadow-sm transition cursor-pointer group relative overflow-hidden" title="Перейти к событиям ТО">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider">Затраты на ТО</span>
-                        <i data-lucide="calendar-check" class="w-4 h-4 text-blue-500 dark:text-blue-400"></i>
+                        <span class="text-xs font-medium uppercase tracking-wider group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">Затраты на ТО</span>
+                        <i data-lucide="calendar-check" class="w-4 h-4 text-blue-500 dark:text-blue-400 group-hover:scale-110 transition"></i>
                     </div>
                     <div class="text-2xl font-black text-blue-600 dark:text-blue-400" id="kpi-to-spent">13 090 ₽</div>
-                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Позиций ТО: <span class="text-slate-900 dark:text-white font-medium" id="kpi-to-records-count">9</span>
+                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                        <span>Позиций ТО: <strong class="text-slate-900 dark:text-white" id="kpi-to-records-count">9</strong></span>
+                        <span class="text-[11px] text-blue-500 font-semibold group-hover:translate-x-0.5 transition">События →</span>
                     </div>
                 </div>
 
-                <!-- Card 3: All Vehicle Expenses (TCO: TO + Tuning + Tyres + Purchases) -->
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <!-- Card 3: All Vehicle Expenses (Clickable -> goes to All Expenses Journal) -->
+                <div onclick="openAllExpensesJournal()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl p-4 sm:p-5 shadow-sm transition cursor-pointer group relative overflow-hidden ring-1 ring-emerald-500/20" title="Нажмите, чтобы увидеть полный журнал всех расходов">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider">Все расходы на авто</span>
-                        <i data-lucide="wallet" class="w-4 h-4 text-emerald-500 dark:text-emerald-400"></i>
+                        <span class="text-xs font-medium uppercase tracking-wider group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">Все расходы на авто</span>
+                        <i data-lucide="wallet" class="w-4 h-4 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition"></i>
                     </div>
                     <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="kpi-all-spent">49 890 ₽</div>
-                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">
-                        ТО + Покупки + Тюнинг + Шины
+                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                        <span class="truncate">ТО + Покупки + Тюнинг + Шины</span>
+                        <span class="text-[11px] text-emerald-500 font-semibold flex-shrink-0 ml-1 group-hover:translate-x-0.5 transition">Журнал →</span>
                     </div>
                 </div>
 
@@ -1355,13 +1357,32 @@
         }
 
         function editAnyRecord(id) {
-            const r = appData.records.find(x => x.id === id);
+            const tyre = (currentTyresList || []).find(t => t.id === id);
+            if (tyre) {
+                openTyreModal(id);
+                return;
+            }
+            const r = (appData.records || []).find(x => x.id === id);
             if (!r) return;
             const tag = r.to_tag || '';
             if (tag.toUpperCase().startsWith('ТО')) {
                 openSingleRecordModal(id);
             } else {
                 openCustomRecordModal(r);
+            }
+        }
+
+        
+        function openAllExpensesJournal() {
+            switchTab('all-parts');
+            const searchInput = document.getElementById('table-search');
+            if (searchInput) searchInput.value = '';
+            const catFilter = document.getElementById('table-category-filter');
+            if (catFilter) catFilter.value = '';
+            renderTable();
+            const tableElem = document.getElementById('tab-content-all-parts');
+            if (tableElem) {
+                tableElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
 
@@ -1372,10 +1393,46 @@
             const searchTerm = (document.getElementById('table-search').value || '').toLowerCase();
             const categoryFilter = document.getElementById('table-category-filter').value;
 
-            const filtered = appData.records.filter(r => {
+            // Combine records and tyre sets for a 100% complete all-expenses journal
+            const allItems = [...(appData.records || [])];
+            
+            (currentTyresList || []).forEach(t => {
+                const cost = parseFloat(t.total_price) || (parseFloat(t.quantity || 4) * parseFloat(t.price_per_unit || 0)) || 0;
+                if (cost > 0) {
+                    allItems.push({
+                        id: t.id,
+                        is_tyre_item: true,
+                        to_tag: 'Шины',
+                        category: 'Шины и Колеса',
+                        date: t.install_date || 'Комплект',
+                        mileage: t.install_mileage || t.current_km || appData.kpi?.current_km || 0,
+                        engine_hours: appData.kpi?.current_hours || 0,
+                        item_name: `Комплект шин: ${t.name} (${t.size})`,
+                        brand: t.brand_model || (t.season === 'summer' ? 'Летние' : 'Зимние'),
+                        article: t.size || '',
+                        quantity: t.quantity || 4,
+                        unit: 'шт',
+                        total_price: cost,
+                        price_per_unit: t.price_per_unit || (cost / (t.quantity || 4)),
+                        store: t.storage_location || 'Шинный склад',
+                        url: '',
+                        note: `Остаток протектора: ${t.tread_depth_mm || 8.0} мм • ${t.storage_location || 'Хранение'}`
+                    });
+                }
+            });
+
+            // Sort all items newest first (by date and mileage)
+            allItems.sort((a, b) => {
+                if (b.date && a.date && b.date !== a.date) return b.date.localeCompare(a.date);
+                return (b.mileage || 0) - (a.mileage || 0);
+            });
+
+            const filtered = allItems.filter(r => {
                 let matchCat = true;
                 if (categoryFilter === 'ТО') {
                     matchCat = (r.to_tag || '').toUpperCase().startsWith('ТО');
+                } else if (categoryFilter === 'Шины' || categoryFilter === 'Шины и Колеса') {
+                    matchCat = (r.to_tag === 'Шины') || (r.category === 'Шины и Колеса');
                 } else if (categoryFilter) {
                     matchCat = (r.category === categoryFilter) || (r.to_tag === categoryFilter);
                 }
