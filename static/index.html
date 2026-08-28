@@ -383,6 +383,48 @@
             </div>
 
             
+                        <!-- ============================================================= -->
+            <!-- BACKUP & MOBILE APP SYNC CARD -->
+            <!-- ============================================================= -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm">
+                            <i data-lucide="smartphone" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Резервное копирование и Синхронизация с Мобильным</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Единый формат бэкапа JSON, 100% совместимый с автономным мобильным приложением</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                        <span><strong>Сохранение всего:</strong> автомобили гаража, пробег, моточасы, журнал всех ТО, тюнинг, шины, АКБ и индивидуальные регламенты.</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                        <span><strong>Двусторонняя совместимость:</strong> вы можете выгрузить бэкап из веб-версии и импортировать его в мобильное приложение на смартфоне (или наоборот).</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 pt-1">
+                    <a href="/api/export-json" download class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-semibold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-2 transition">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Скачать бэкап (.json)</span>
+                    </a>
+
+                    <label class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-4 py-2.5 rounded-xl font-semibold text-xs flex items-center gap-2 cursor-pointer transition">
+                        <i data-lucide="upload" class="w-4 h-4 text-blue-500"></i>
+                        <span>Восстановить из файла</span>
+                        <input type="file" id="backup-file-input" accept=".json,application/json" onchange="handleImportBackup(event)" class="hidden">
+                    </label>
+                </div>
+                <div id="import-status-msg" class="text-xs"></div>
+            </div>
+
             <!-- Admin Password Change Section -->
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
