@@ -352,18 +352,24 @@ def get_status():
     current_km = vehicle.get("current_km", 0)
     current_hours = vehicle.get("current_engine_hours", 0)
     
+    # 1. Maintenance TO only spent
+    to_records = [r for r in records if str(r.get("to_tag", "")).upper().startswith("ТО")]
+    to_spent = sum(r.get("total_price", 0) for r in to_records)
+    
+    # 2. Custom records (tuning, battery, repairs outside TO)
+    custom_records = [r for r in records if not str(r.get("to_tag", "")).upper().startswith("ТО")]
+    custom_spent = sum(r.get("total_price", 0) for r in custom_records)
+    
+    # 3. Tyres spent
     tyres = db.get("tyre_sets", [])
     tyres_spent = sum((t.get("total_price") or (float(t.get("quantity", 4.0)) * float(t.get("price_per_unit", 0.0))) or 0) for t in tyres if t.get("vehicle_id", "car_1") == v_id)
     
-    total_spent = sum(r.get("total_price", 0) for r in records) + int(tyres_spent)
-    cost_per_km = round(total_spent / current_km, 2) if current_km > 0 else 0
-    avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
+    # 4. Total overall vehicle expenses
+    total_all_spent = to_spent + custom_spent + int(tyres_spent)
     
-    # Expense Breakdown
-    to_spent = sum(r.get("total_price", 0) for r in records if str(r.get("to_tag", "")).upper().startswith("ТО"))
-    custom_spent = total_spent - to_spent
-    tuning_spent = sum(r.get("total_price", 0) for r in records if "тюнинг" in str(r.get("category", "")).lower() or "тюнинг" in str(r.get("to_tag", "")).lower())
-    tires_spent = sum(r.get("total_price", 0) for r in records if "шин" in str(r.get("category", "")).lower() or "колес" in str(r.get("category", "")).lower())
+    cost_per_km_all = round(total_all_spent / current_km, 2) if current_km > 0 else 0
+    cost_per_km_to = round(to_spent / current_km, 2) if current_km > 0 else 0
+    avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
     
     consumables_status = []
     
@@ -480,10 +486,16 @@ def get_status():
         "kpi": {
             "current_km": current_km,
             "current_hours": current_hours,
-            "total_spent": total_spent,
-            "cost_per_km": cost_per_km,
+            "to_spent": int(to_spent),
+            "custom_spent": int(custom_spent),
+            "tyres_spent": int(tyres_spent),
+            "total_spent": int(to_spent),
+            "total_all_spent": int(total_all_spent),
+            "cost_per_km": cost_per_km_all,
+            "cost_per_km_to": cost_per_km_to,
             "avg_speed": avg_speed,
             "total_records": len(records),
+            "to_records_count": len(to_records),
             "attention_count": attention_count
         },
         "consumables": consumables_status

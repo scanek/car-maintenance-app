@@ -184,10 +184,10 @@
         <!-- TAB 1: DASHBOARD & MONITORING -->
         <!-- ============================================================= -->
         <div id="tab-content-dashboard" class="space-y-8">
-            <!-- KPI Stats Cards -->
-            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI Stats Cards (5 Responsive Cards: Mileage, TO Spent, All Vehicle Expenses, Cost/KM, Status) -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
                 <!-- Card 1: Current Mileage & Hours -->
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                         <span class="text-xs font-medium uppercase tracking-wider">Текущий пробег</span>
                         <i data-lucide="activity" class="w-4 h-4 text-blue-500 dark:text-blue-400"></i>
@@ -200,34 +200,46 @@
                     </div>
                 </div>
 
-                <!-- Card 2: Total Spent -->
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                <!-- Card 2: Only TO Expenses (Strictly Maintenance) -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider">Всего затрат на ТО</span>
+                        <span class="text-xs font-medium uppercase tracking-wider">Затраты на ТО</span>
+                        <i data-lucide="calendar-check" class="w-4 h-4 text-blue-500 dark:text-blue-400"></i>
+                    </div>
+                    <div class="text-2xl font-black text-blue-600 dark:text-blue-400" id="kpi-to-spent">13 090 ₽</div>
+                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        Позиций ТО: <span class="text-slate-900 dark:text-white font-medium" id="kpi-to-records-count">9</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: All Vehicle Expenses (TCO: TO + Tuning + Tyres + Purchases) -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider">Все расходы на авто</span>
                         <i data-lucide="wallet" class="w-4 h-4 text-emerald-500 dark:text-emerald-400"></i>
                     </div>
-                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="kpi-total-spent">13 090 ₽</div>
-                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Зафиксировано позиций: <span class="text-slate-900 dark:text-white font-medium" id="kpi-records-count">9</span>
+                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="kpi-all-spent">49 890 ₽</div>
+                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">
+                        ТО + Покупки + Тюнинг + Шины
                     </div>
                 </div>
 
-                <!-- Card 3: Cost per KM -->
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                <!-- Card 4: Cost per KM -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider">Стоимость 1 км (ТО)</span>
+                        <span class="text-xs font-medium uppercase tracking-wider">Стоимость 1 км</span>
                         <i data-lucide="trending-down" class="w-4 h-4 text-purple-500 dark:text-purple-400"></i>
                     </div>
-                    <div class="text-2xl font-black text-purple-600 dark:text-purple-300" id="kpi-cost-km">0.52 ₽/км</div>
+                    <div class="text-2xl font-black text-purple-600 dark:text-purple-300" id="kpi-cost-km">1.97 ₽/км</div>
                     <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Только расходники и материалы
+                        ТО: <span class="text-blue-600 dark:text-blue-400 font-semibold" id="kpi-cost-km-to">0.52 ₽/км</span>
                     </div>
                 </div>
 
-                <!-- Card 4: Status / Attention -->
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                <!-- Card 5: Status / Attention -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider">Статус обслуживания</span>
+                        <span class="text-xs font-medium uppercase tracking-wider">Статус узлов</span>
                         <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500 dark:text-emerald-400" id="kpi-shield-icon"></i>
                     </div>
                     <div class="text-2xl font-black" id="kpi-attention-text">Все в норме</div>
@@ -1092,12 +1104,22 @@
         }
 
         function renderDashboard() {
-            document.getElementById('kpi-km').innerText = Number(appData.kpi.current_km).toLocaleString('ru-RU') + ' км';
-            document.getElementById('kpi-hours').innerText = Number(appData.kpi.current_hours).toLocaleString('ru-RU') + ' м/ч';
-            document.getElementById('kpi-speed').innerText = appData.kpi.avg_speed + ' км/ч';
-            document.getElementById('kpi-total-spent').innerText = Number(appData.kpi.total_spent).toLocaleString('ru-RU') + ' ₽';
-            document.getElementById('kpi-cost-km').innerText = appData.kpi.cost_per_km + ' ₽/км';
-            document.getElementById('kpi-records-count').innerText = appData.kpi.total_records;
+            document.getElementById('kpi-km').innerText = Number(appData.kpi.current_km || 0).toLocaleString('ru-RU') + ' км';
+            document.getElementById('kpi-hours').innerText = Number(appData.kpi.current_hours || 0).toLocaleString('ru-RU') + ' м/ч';
+            document.getElementById('kpi-speed').innerText = (appData.kpi.avg_speed || 0) + ' км/ч';
+            
+            const toSpentEl = document.getElementById('kpi-to-spent');
+            if (toSpentEl) toSpentEl.innerText = Number(appData.kpi.to_spent ?? appData.kpi.total_spent ?? 0).toLocaleString('ru-RU') + ' ₽';
+            
+            const allSpentEl = document.getElementById('kpi-all-spent');
+            if (allSpentEl) allSpentEl.innerText = Number(appData.kpi.total_all_spent ?? appData.kpi.total_spent ?? 0).toLocaleString('ru-RU') + ' ₽';
+            
+            const toCountEl = document.getElementById('kpi-to-records-count');
+            if (toCountEl) toCountEl.innerText = appData.kpi.to_records_count ?? appData.kpi.total_records ?? 0;
+            
+            document.getElementById('kpi-cost-km').innerText = (appData.kpi.cost_per_km || 0) + ' ₽/км';
+            const costToEl = document.getElementById('kpi-cost-km-to');
+            if (costToEl) costToEl.innerText = (appData.kpi.cost_per_km_to || 0) + ' ₽/км';
 
             const attentionCount = appData.kpi.attention_count;
             const attentionText = document.getElementById('kpi-attention-text');
