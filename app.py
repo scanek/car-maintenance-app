@@ -352,7 +352,10 @@ def get_status():
     current_km = vehicle.get("current_km", 0)
     current_hours = vehicle.get("current_engine_hours", 0)
     
-    total_spent = sum(r.get("total_price", 0) for r in records)
+    tyres = db.get("tyre_sets", [])
+    tyres_spent = sum((t.get("total_price") or (float(t.get("quantity", 4.0)) * float(t.get("price_per_unit", 0.0))) or 0) for t in tyres if t.get("vehicle_id", "car_1") == v_id)
+    
+    total_spent = sum(r.get("total_price", 0) for r in records) + int(tyres_spent)
     cost_per_km = round(total_spent / current_km, 2) if current_km > 0 else 0
     avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
     
@@ -741,7 +744,10 @@ def export_excel():
     
     current_km = vehicle.get("current_km", 0)
     current_hours = vehicle.get("current_engine_hours", 0)
-    total_spent = sum(r.get("total_price", 0) for r in records)
+    tyres = db.get("tyre_sets", [])
+    tyres_spent = sum((t.get("total_price") or (float(t.get("quantity", 4.0)) * float(t.get("price_per_unit", 0.0))) or 0) for t in tyres if t.get("vehicle_id", "car_1") == v_id)
+    
+    total_spent = sum(r.get("total_price", 0) for r in records) + int(tyres_spent)
     cost_per_km = round(total_spent / current_km, 2) if current_km > 0 else 0
     avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
     

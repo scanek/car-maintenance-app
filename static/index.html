@@ -1053,17 +1053,19 @@
 
         async function fetchAll() {
             try {
-                const [statusRes, recRes, toRes, setRes] = await Promise.all([
+                const [statusRes, recRes, toRes, setRes, tyresRes] = await Promise.all([
                     fetch('/api/status'),
                     fetch('/api/records'),
                     fetch('/api/to-groups'),
-                    fetch('/api/settings')
+                    fetch('/api/settings'),
+                    fetch('/api/tyres')
                 ]);
 
                 const statusData = await statusRes.json();
                 const recData = await recRes.json();
                 const toData = await toRes.json();
                 const setData = await setRes.json();
+                if (tyresRes && tyresRes.ok) currentTyresList = await tyresRes.json();
 
                 appData = {
                     vehicle: statusData.vehicle,
@@ -1424,10 +1426,22 @@
 
             // Category Spend Doughnut
             const categorySums = {};
-            appData.records.forEach(r => {
+            (appData.records || []).forEach(r => {
                 const cat = r.category || 'Прочее';
-                categorySums[cat] = (categorySums[cat] || 0) + r.total_price;
+                categorySums[cat] = (categorySums[cat] || 0) + (r.total_price || 0);
             });
+
+            // Include Tyres in Category Breakdown
+            let tyresTotalCost = 0;
+            (currentTyresList || []).forEach(t => {
+                const cost = parseFloat(t.total_price) || (parseFloat(t.quantity || 4) * parseFloat(t.price_per_unit || 0)) || 0;
+                if (cost > 0) {
+                    tyresTotalCost += cost;
+                }
+            });
+            if (tyresTotalCost > 0) {
+                categorySums['Шины и Колеса'] = (categorySums['Шины и Колеса'] || 0) + tyresTotalCost;
+            }
 
             const catLabels = Object.keys(categorySums);
             const catValues = Object.values(categorySums);
