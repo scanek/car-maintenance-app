@@ -4,6 +4,7 @@ import uuid
 import secrets
 import shutil
 import tempfile
+import urllib.parse
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Header, Depends, status
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, PieChart, DoughnutChart, LineChart, Reference, Series
 
 app = FastAPI(title="Changan Auto Maintenance Dashboard")
 
@@ -716,12 +718,23 @@ def export_excel():
     records = [r for r in all_records if r.get("vehicle_id", "car_1") == v_id]
     trackers = get_vehicle_trackers(db, vehicle)
     
+    current_km = vehicle.get("current_km", 0)
+    current_hours = vehicle.get("current_engine_hours", 0)
+    total_spent = sum(r.get("total_price", 0) for r in records)
+    cost_per_km = round(total_spent / current_km, 2) if current_km > 0 else 0
+    avg_speed = round(current_km / current_hours, 1) if current_hours > 0 else 0
+    
     wb = openpyxl.Workbook()
-    wb.remove(wb.active)
+    wb.remove(wb.active) # Remove default sheet
     
     NAVY_HEADER = "1E293B"
+    BLUE_ACCENT = "2563EB"
+    INDIGO_HEADER = "4338CA"
+    EMERALD_COLOR = "059669"
     WHITE = "FFFFFF"
     BORDER_COLOR = "CBD5E1"
+    LIGHT_BG = "F8FAFC"
+    CARD_BG = "F1F5F9"
     
     thin_border = Border(
         left=Side(style='thin', color=BORDER_COLOR),
@@ -729,121 +742,474 @@ def export_excel():
         top=Side(style='thin', color=BORDER_COLOR),
         bottom=Side(style='thin', color=BORDER_COLOR)
     )
-    thick_bottom = Border(
+    thick_bottom_navy = Border(
         left=Side(style='thin', color=BORDER_COLOR),
         right=Side(style='thin', color=BORDER_COLOR),
         top=Side(style='thin', color=BORDER_COLOR),
-        bottom=Side(style='medium', color="2563EB")
+        bottom=Side(style='medium', color=NAVY_HEADER)
     )
-    header_font = Font(name="Segoe UI", size=11, bold=True, color=WHITE)
-    header_fill = PatternFill(start_color=NAVY_HEADER, end_color=NAVY_HEADER, fill_type="solid")
     
-    # Sheet 1: Dashboard
-    ws_dash = wb.create_sheet(title="Дашборд & Статус")
-    ws_dash.views.sheetView[0].showGridLines = True
-    ws_dash["B2"] = "УЧЕТ И СТАТУС ОБСЛУЖИВАНИЯ АВТОМОБИЛЯ"
-    ws_dash["B2"].font = Font(name="Segoe UI", size=15, bold=True, color="0F172A")
-    ws_dash["B3"] = f"Автомобиль: {vehicle.get('brand', '')} {vehicle.get('model', '')} | Госномер: {vehicle.get('plate', '-')}"
-    ws_dash["B3"].font = Font(name="Segoe UI", size=10, italic=True, color="64748B")
+    font_title = Font(name="Segoe UI", size=14, bold=True, color="0F172A")
+    font_subtitle = Font(name="Segoe UI", size=9, italic=True, color="64748B")
+    font_section = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
+    font_header = Font(name="Segoe UI", size=10, bold=True, color=WHITE)
+    font_bold = Font(name="Segoe UI", size=10, bold=True)
+    font_regular = Font(name="Segoe UI", size=10)
+    font_kpi_value = Font(name="Segoe UI", size=13, bold=True, color="1E293B")
+    font_kpi_label = Font(name="Segoe UI", size=8, bold=True, color="64748B")
     
-    ws_dash["B5"] = "Текущий пробег (км):"
-    ws_dash["B5"].font = Font(name="Segoe UI", size=11, bold=True)
-    ws_dash["C5"] = vehicle.get("current_km", 0)
-    ws_dash["C5"].number_format = '#,##0 "км"'
-    ws_dash["C5"].font = Font(name="Segoe UI", size=12, bold=True)
-    ws_dash["C5"].fill = PatternFill(start_color="FEF08A", end_color="FEF08A", fill_type="solid")
-    ws_dash["C5"].border = thin_border
+    fill_header_navy = PatternFill(start_color=NAVY_HEADER, end_color=NAVY_HEADER, fill_type="solid")
+    fill_header_indigo = PatternFill(start_color=INDIGO_HEADER, end_color=INDIGO_HEADER, fill_type="solid")
+    fill_header_blue = PatternFill(start_color=BLUE_ACCENT, end_color=BLUE_ACCENT, fill_type="solid")
+    fill_card = PatternFill(start_color=CARD_BG, end_color=CARD_BG, fill_type="solid")
+    fill_zebra = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    fill_total = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
     
-    ws_dash["D5"] = "Текущие моточасы (м/ч):"
-    ws_dash["D5"].font = Font(name="Segoe UI", size=11, bold=True)
-    ws_dash["E5"] = vehicle.get("current_engine_hours", 0)
-    ws_dash["E5"].number_format = '#,##0 "м/ч"'
-    ws_dash["E5"].font = Font(name="Segoe UI", size=12, bold=True)
-    ws_dash["E5"].fill = PatternFill(start_color="FEF08A", end_color="FEF08A", fill_type="solid")
-    ws_dash["E5"].border = thin_border
+    # -------------------------------------------------------------
+    # SHEET 1: АНАЛИТИКА И ГРАФИКИ
+    # -------------------------------------------------------------
+    ws_charts = wb.create_sheet(title="Аналитика и Графики")
+    ws_charts.views.sheetView[0].showGridLines = True
     
-    # Sheet 2: Log
-    ws_log = wb.create_sheet(title="Журнал обслуживания")
-    ws_log.views.sheetView[0].showGridLines = True
-    log_headers = [
-        "ТО", "№", "Дата", "Моточасы (м/ч)", "Пробег (км)", "Категория", "Наименование расходника",
-        "Марка / Модель", "Артикул", "Кол-во", "Ед.", "Цена за ед.", "Сумма (₽)",
-        "Интервал (км)", "Интервал (м/ч)", "След. замена (км)", "След. замена (м/ч)", "Примечание", "Где куплено", "Ссылка"
+    # Title Header Block
+    ws_charts["B2"] = f"ОТЧЕТ ПО ОБСЛУЖИВАНИЮ: {vehicle.get('brand', '')} {vehicle.get('model', '')}"
+    ws_charts["B2"].font = font_title
+    ws_charts["B3"] = f"Госномер: {vehicle.get('plate', '-')} | Двигатель: {vehicle.get('engine', '-')} | Автор проекта: Щеголев Александр (scanek)"
+    ws_charts["B3"].font = font_subtitle
+    
+    # KPI Mini Cards (Row 5-6)
+    kpis = [
+        ("ТЕКУЩИЙ ПРОБЕГ", f"{current_km:,} км".replace(",", " "), "B"),
+        ("МОТОЧАСЫ", f"{current_hours:,} м/ч".replace(",", " "), "C"),
+        ("ВСЕГО ЗАТРАТ", f"{total_spent:,} ₽".replace(",", " "), "D"),
+        ("СТОИМОСТЬ КМ", f"{cost_per_km} ₽/км", "E"),
+        ("СРЕДНЯЯ СКОРОСТЬ", f"{avg_speed} км/ч", "F"),
     ]
-    for c_idx, title in enumerate(log_headers, start=1):
-        cell = ws_log.cell(row=2, column=c_idx, value=title)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = thick_bottom
+    for label, val, col in kpis:
+        c_lbl = ws_charts[f"{col}5"]
+        c_lbl.value = label
+        c_lbl.font = font_kpi_label
+        c_lbl.alignment = Alignment(horizontal="center", vertical="center")
+        c_lbl.fill = fill_card
+        c_lbl.border = thin_border
         
-    for r_idx, r in enumerate(records, start=3):
-        ws_log.cell(row=r_idx, column=1, value=r.get("to_tag", ""))
-        ws_log.cell(row=r_idx, column=2, value=r_idx-2)
-        ws_log.cell(row=r_idx, column=3, value=r.get("date", ""))
-        ws_log.cell(row=r_idx, column=4, value=r.get("engine_hours", 0))
-        ws_log.cell(row=r_idx, column=5, value=r.get("mileage", 0))
-        ws_log.cell(row=r_idx, column=6, value=r.get("category", ""))
-        ws_log.cell(row=r_idx, column=7, value=r.get("item_name", ""))
-        ws_log.cell(row=r_idx, column=8, value=r.get("brand", ""))
-        ws_log.cell(row=r_idx, column=9, value=r.get("article", ""))
-        ws_log.cell(row=r_idx, column=10, value=r.get("quantity", 1))
-        ws_log.cell(row=r_idx, column=11, value=r.get("unit", "шт"))
-        ws_log.cell(row=r_idx, column=12, value=r.get("price_per_unit", 0))
-        ws_log.cell(row=r_idx, column=13, value=r.get("total_price", 0))
-        ws_log.cell(row=r_idx, column=14, value=r.get("interval_km", 0))
-        ws_log.cell(row=r_idx, column=15, value=r.get("interval_hours", 0))
-        ws_log.cell(row=r_idx, column=16, value=r.get("next_km", 0))
-        ws_log.cell(row=r_idx, column=17, value=r.get("next_hours", 0))
-        ws_log.cell(row=r_idx, column=18, value=r.get("note", ""))
-        ws_log.cell(row=r_idx, column=19, value=r.get("store", ""))
-        ws_log.cell(row=r_idx, column=20, value=r.get("url", ""))
+        c_val = ws_charts[f"{col}6"]
+        c_val.value = val
+        c_val.font = font_kpi_value
+        c_val.alignment = Alignment(horizontal="center", vertical="center")
+        c_val.fill = fill_card
+        c_val.border = thin_border
         
-        for c in range(1, 21):
-            cell = ws_log.cell(row=r_idx, column=c)
-            cell.border = thin_border
-            if c in [1, 2, 3, 4, 5, 6, 10, 11, 14, 15, 16, 17, 19]:
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-                
-    # Sheet 3: Settings / Reference
-    ws_set = wb.create_sheet(title="Настройки регламентов")
-    ws_set.views.sheetView[0].showGridLines = True
-    set_headers = ["ID", "Расходник", "Категория", "Интервал (км)", "Интервал (м/ч)", "Спецификация", "Бренд", "Артикул"]
-    for c_idx, title in enumerate(set_headers, start=1):
-        cell = ws_set.cell(row=2, column=c_idx, value=title)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = thick_bottom
-        
-    for r_idx, t in enumerate(trackers, start=3):
-        ws_set.cell(row=r_idx, column=1, value=t.get("id", ""))
-        ws_set.cell(row=r_idx, column=2, value=t.get("name", ""))
-        ws_set.cell(row=r_idx, column=3, value=t.get("category", ""))
-        ws_set.cell(row=r_idx, column=4, value=t.get("interval_km", 0))
-        ws_set.cell(row=r_idx, column=5, value=t.get("interval_hours", 0))
-        ws_set.cell(row=r_idx, column=6, value=t.get("spec", ""))
-        ws_set.cell(row=r_idx, column=7, value=t.get("brand", ""))
-        ws_set.cell(row=r_idx, column=8, value=t.get("article", ""))
-        for c in range(1, 9):
-            ws_set.cell(row=r_idx, column=c).border = thin_border
+    # --- TABLE 1: Категории расходов (Data Source for Pie/Doughnut Chart) ---
+    ws_charts["B9"] = "Структура расходов по категориям"
+    ws_charts["B9"].font = font_section
     
-    for ws in [ws_dash, ws_log, ws_set]:
+    cat_headers = ["Категория", "Сумма (₽)", "Доля"]
+    for ci, h in enumerate(cat_headers, start=2):
+        cell = ws_charts.cell(row=10, column=ci, value=h)
+        cell.font = font_header
+        cell.fill = fill_header_indigo
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
+        
+    cat_totals = {}
+    for r in records:
+        cat = r.get("category") or "Прочее"
+        tag = str(r.get("to_tag", ""))
+        if "тюнинг" in tag.lower() or "тюнинг" in cat.lower():
+            cat = "Тюнинг и доработки"
+        elif "шин" in tag.lower() or "шин" in cat.lower() or "колес" in cat.lower():
+            cat = "Шины и колеса"
+        elif "акб" in tag.lower() or "аккумулятор" in cat.lower():
+            cat = "Аккумулятор и электрика"
+        elif "ремонт" in tag.lower() or "ремонт" in cat.lower():
+            cat = "Ремонт и сервис"
+        cat_totals[cat] = cat_totals.get(cat, 0) + r.get("total_price", 0)
+        
+    if not cat_totals:
+        cat_totals["Плановое ТО"] = 0
+        
+    cat_row_start = 11
+    cat_row_end = cat_row_start + len(cat_totals) - 1
+    
+    for idx, (cat_name, sum_val) in enumerate(sorted(cat_totals.items(), key=lambda x: x[1], reverse=True), start=cat_row_start):
+        c1 = ws_charts.cell(row=idx, column=2, value=cat_name)
+        c2 = ws_charts.cell(row=idx, column=3, value=sum_val)
+        c3 = ws_charts.cell(row=idx, column=4, value=f"=C{idx}/C{cat_row_end+1}" if total_spent > 0 else 0)
+        
+        c1.font = font_regular
+        c2.font = font_bold
+        c3.font = font_regular
+        
+        c1.border = thin_border
+        c2.border = thin_border
+        c3.border = thin_border
+        
+        c2.number_format = '#,##0 "₽"'
+        c3.number_format = '0.0%'
+        c3.alignment = Alignment(horizontal="center")
+        
+    # Total row for categories
+    tot_row = cat_row_end + 1
+    ws_charts.cell(row=tot_row, column=2, value="ИТОГО:").font = font_bold
+    ws_charts.cell(row=tot_row, column=2).fill = fill_total
+    ws_charts.cell(row=tot_row, column=2).border = thin_border
+    
+    c_tot_val = ws_charts.cell(row=tot_row, column=3, value=f"=SUM(C{cat_row_start}:C{cat_row_end})")
+    c_tot_val.font = font_bold
+    c_tot_val.fill = fill_total
+    c_tot_val.border = thin_border
+    c_tot_val.number_format = '#,##0 "₽"'
+    
+    c_tot_pct = ws_charts.cell(row=tot_row, column=4, value=1.0)
+    c_tot_pct.font = font_bold
+    c_tot_pct.fill = fill_total
+    c_tot_pct.border = thin_border
+    c_tot_pct.number_format = '0.0%'
+    c_tot_pct.alignment = Alignment(horizontal="center")
+    
+    # --- CHART 1: Doughnut Chart (Категории расходов) ---
+    pie = DoughnutChart()
+    pie.title = "Структура расходов автомобиля"
+    pie.style = 10
+    labels = Reference(ws_charts, min_col=2, min_row=cat_row_start, max_row=cat_row_end)
+    data = Reference(ws_charts, min_col=3, min_row=10, max_row=cat_row_end)
+    pie.add_data(data, titles_from_data=True)
+    pie.set_categories(labels)
+    pie.width = 15
+    pie.height = 8.5
+    pie.holeSize = 40
+    ws_charts.add_chart(pie, "F9")
+    
+    # --- TABLE 2: Динамика расходов по событиям (Data Source for Column BarChart) ---
+    event_start_row = max(tot_row + 3, 20)
+    ws_charts.cell(row=event_start_row - 1, column=2, value="Расходы по событиям ТО и покупкам").font = font_section
+    
+    ev_headers = ["Событие / ТО", "Пробег (км)", "Затраты (₽)"]
+    for ci, h in enumerate(ev_headers, start=2):
+        cell = ws_charts.cell(row=event_start_row, column=ci, value=h)
+        cell.font = font_header
+        cell.fill = fill_header_blue
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
+        
+    # Aggregate by event tag
+    events_map = {}
+    for r in records:
+        tag = r.get("to_tag") or "Вне ТО"
+        if tag not in events_map:
+            events_map[tag] = {"tag": tag, "mileage": r.get("mileage", 0), "total": 0}
+        events_map[tag]["total"] += r.get("total_price", 0)
+        events_map[tag]["mileage"] = max(events_map[tag]["mileage"], r.get("mileage", 0))
+        
+    ev_data_start = event_start_row + 1
+    ev_data_end = ev_data_start + max(len(events_map), 1) - 1
+    
+    if events_map:
+        for idx, ev in enumerate(events_map.values(), start=ev_data_start):
+            c1 = ws_charts.cell(row=idx, column=2, value=ev["tag"])
+            c2 = ws_charts.cell(row=idx, column=3, value=ev["mileage"])
+            c3 = ws_charts.cell(row=idx, column=4, value=ev["total"])
+            
+            c1.font = font_bold
+            c2.font = font_regular
+            c3.font = font_bold
+            
+            c1.border = thin_border
+            c2.border = thin_border
+            c3.border = thin_border
+            
+            c2.number_format = '#,##0 "км"'
+            c3.number_format = '#,##0 "₽"'
+            c2.alignment = Alignment(horizontal="center")
+    else:
+        ws_charts.cell(row=ev_data_start, column=2, value="Нет записей").border = thin_border
+        ws_charts.cell(row=ev_data_start, column=3, value=0).border = thin_border
+        ws_charts.cell(row=ev_data_start, column=4, value=0).border = thin_border
+        
+    # --- CHART 2: Column Chart (Динамика расходов) ---
+    bar = BarChart()
+    bar.type = "col"
+    bar.style = 11
+    bar.title = "Затраты по событиям обслуживания (₽)"
+    bar.y_axis.title = "Сумма (₽)"
+    bar.x_axis.title = "Событие"
+    data_bar = Reference(ws_charts, min_col=4, min_row=event_start_row, max_row=ev_data_end)
+    labels_bar = Reference(ws_charts, min_col=2, min_row=ev_data_start, max_row=ev_data_end)
+    bar.add_data(data_bar, titles_from_data=True)
+    bar.set_categories(labels_bar)
+    bar.legend = None # No legend needed for single series
+    bar.width = 15
+    bar.height = 8.5
+    ws_charts.add_chart(bar, f"F{event_start_row}")
+    
+    # -------------------------------------------------------------
+    # SHEET 2: СОСТОЯНИЕ РАСХОДНИКОВ И РЕСУРС
+    # -------------------------------------------------------------
+    ws_status = wb.create_sheet(title="Состояние расходников")
+    ws_status.views.sheetView[0].showGridLines = True
+    
+    ws_status["B2"] = f"ТЕКУЩИЙ ИЗНОС И РЕСУРС РАСХОДНЫХ МАТЕРИАЛОВ: {vehicle.get('name', '')}"
+    ws_status["B2"].font = font_title
+    ws_status["B3"] = f"Текущий пробег: {current_km:,} км | Моточасы: {current_hours:,} м/ч".replace(",", " ")
+    ws_status["B3"].font = font_subtitle
+    
+    st_headers = [
+        "Расходник", "Категория", "Последняя замена", "Пробег зам. (км)", "Моточасы (м/ч)",
+        "След. замена (км)", "След. замена (м/ч)", "Остаток (км)", "Остаток (м/ч)",
+        "Износ (%)", "Статус", "Артикул / Спецификация"
+    ]
+    for ci, h in enumerate(st_headers, start=2):
+        cell = ws_status.cell(row=5, column=ci, value=h)
+        cell.font = font_header
+        cell.fill = fill_header_navy
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thick_bottom_navy
+        
+    for r_idx, tracker in enumerate(trackers, start=6):
+        keyword = tracker.get("match", "").lower()
+        matching = [r for r in records if keyword in r["item_name"].lower()]
+        matching.sort(key=lambda x: (x["mileage"], x["date"]))
+        latest = matching[-1] if matching else None
+        
+        interval_km = tracker.get("interval_km", 7500)
+        interval_h = tracker.get("interval_hours", 250)
+        
+        if latest:
+            last_date = latest["date"]
+            last_km = latest["mileage"]
+            last_h = latest["engine_hours"]
+            rec_int_km = latest.get("interval_km") or interval_km
+            rec_int_h = latest.get("interval_hours") or interval_h
+            
+            next_km = latest.get("next_km", last_km + rec_int_km)
+            next_h = latest.get("next_hours", last_h + rec_int_h if rec_int_h > 0 else 0)
+            
+            eff_km = max(current_km, last_km)
+            eff_h = max(current_hours, last_h)
+            rem_km = next_km - eff_km
+            rem_h = (next_h - eff_h) if next_h > 0 else None
+            
+            used_km = eff_km - last_km
+            wear = max(0.0, min(1.0, used_km / rec_int_km)) if rec_int_km > 0 else 0.0
+            
+            if rem_km <= 0 or (rem_h is not None and rem_h <= 0):
+                st_code = "ТРЕБУЕТСЯ ЗАМЕНА!"
+                st_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+                st_font = Font(name="Segoe UI", size=9, bold=True, color="991B1B")
+            elif rem_km <= tracker.get("warn_km", 1500) or (rem_h is not None and rem_h <= tracker.get("warn_hours", 30)):
+                st_code = "Внимание (скоро замена)"
+                st_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+                st_font = Font(name="Segoe UI", size=9, bold=True, color="92400E")
+            else:
+                st_code = "В норме"
+                st_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+                st_font = Font(name="Segoe UI", size=9, bold=True, color="065F46")
+        else:
+            last_date = "Нет данных"
+            last_km = 0
+            last_h = 0
+            next_km = interval_km
+            next_h = interval_h
+            rem_km = interval_km - current_km
+            rem_h = (interval_h - current_hours) if interval_h > 0 else None
+            wear = 0.0
+            st_code = "Нет записей ТО"
+            st_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+            st_font = Font(name="Segoe UI", size=9, bold=True, color="475569")
+            
+        row_vals = [
+            tracker.get("name", ""),
+            tracker.get("category", "Прочее"),
+            last_date,
+            last_km,
+            last_h if last_h > 0 else "-",
+            next_km,
+            next_h if next_h > 0 else "-",
+            rem_km,
+            rem_h if rem_h is not None else "-",
+            wear,
+            st_code,
+            tracker.get("article") or tracker.get("spec") or "-"
+        ]
+        
+        for ci, val in enumerate(row_vals, start=2):
+            cell = ws_status.cell(row=r_idx, column=ci, value=val)
+            cell.font = font_regular
+            cell.border = thin_border
+            if ci in [4, 6, 8]:
+                cell.number_format = '#,##0 "км"'
+                cell.alignment = Alignment(horizontal="right")
+            elif ci == 11:
+                cell.number_format = '0.0%'
+                cell.alignment = Alignment(horizontal="center")
+            elif ci == 12:
+                cell.fill = st_fill
+                cell.font = st_font
+                cell.alignment = Alignment(horizontal="center")
+            elif ci in [2, 3, 5, 7, 9, 10]:
+                cell.alignment = Alignment(horizontal="center")
+                
+    # -------------------------------------------------------------
+    # SHEET 3: ЖУРНАЛ ВСЕХ РАСХОДОВ И ТО
+    # -------------------------------------------------------------
+    ws_log = wb.create_sheet(title="Журнал всех записей")
+    ws_log.views.sheetView[0].showGridLines = True
+    
+    ws_log["B2"] = f"ПОЛНЫЙ ЖУРНАЛ ТО, ТЮНИНГА И ПОКУПОК: {vehicle.get('name', '')}"
+    ws_log["B2"].font = font_title
+    ws_log["B3"] = f"Всего позиций: {len(records)} | Общая сумма затрат: {total_spent:,} ₽".replace(",", " ")
+    ws_log["B3"].font = font_subtitle
+    
+    log_headers = [
+        "Метка / ТО", "№", "Дата", "Пробег (км)", "Моточасы (м/ч)", "Категория",
+        "Наименование детали / работы", "Бренд", "Артикул / Модель", "Кол-во", "Ед.",
+        "Цена за ед.", "Сумма (₽)", "След. замена (км)", "След. замена (м/ч)",
+        "Магазин / Сервис", "Заметки / Гарантия", "Ссылка"
+    ]
+    for ci, h in enumerate(log_headers, start=2):
+        cell = ws_log.cell(row=5, column=ci, value=h)
+        cell.font = font_header
+        cell.fill = fill_header_navy
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thick_bottom_navy
+        
+    for r_idx, r in enumerate(records, start=6):
+        is_zebra = (r_idx % 2 == 0)
+        row_fill = fill_zebra if is_zebra else None
+        
+        tag = r.get("to_tag") or "Вне ТО"
+        
+        row_vals = [
+            tag,
+            r_idx - 5,
+            r.get("date", ""),
+            r.get("mileage", 0),
+            r.get("engine_hours", 0) if r.get("engine_hours", 0) > 0 else "-",
+            r.get("category", "Прочее"),
+            r.get("item_name", ""),
+            r.get("brand", "") or "-",
+            r.get("article", "") or "-",
+            r.get("quantity", 1),
+            r.get("unit", "шт"),
+            r.get("price_per_unit", 0),
+            r.get("total_price", 0),
+            r.get("next_km", 0) if r.get("next_km", 0) > 0 else "-",
+            r.get("next_hours", 0) if r.get("next_hours", 0) > 0 else "-",
+            r.get("store", "") or "-",
+            r.get("note", "") or "-",
+            r.get("url", "") or "-"
+        ]
+        
+        for ci, val in enumerate(row_vals, start=2):
+            cell = ws_log.cell(row=r_idx, column=ci, value=val)
+            cell.font = font_regular
+            cell.border = thin_border
+            if row_fill:
+                cell.fill = row_fill
+                
+            if ci in [5, 15]:
+                if isinstance(val, (int, float)):
+                    cell.number_format = '#,##0 "км"'
+                cell.alignment = Alignment(horizontal="right")
+            elif ci in [13, 14]:
+                cell.number_format = '#,##0 "₽"'
+                cell.font = font_bold
+                cell.alignment = Alignment(horizontal="right")
+            elif ci in [2, 3, 4, 6, 11, 12]:
+                cell.alignment = Alignment(horizontal="center")
+                if ci == 2:
+                    cell.font = font_bold
+                    
+    # Log Total row
+    log_tot_row = len(records) + 6
+    ws_log.cell(row=log_tot_row, column=2, value="ИТОГО:").font = font_bold
+    ws_log.cell(row=log_tot_row, column=2).fill = fill_total
+    ws_log.cell(row=log_tot_row, column=2).border = thin_border
+    
+    for ci in range(3, 14):
+        c = ws_log.cell(row=log_tot_row, column=ci)
+        c.fill = fill_total
+        c.border = thin_border
+        if ci == 14: # Column N (Сумма ₽)
+            c.value = f"=SUM(N6:N{log_tot_row-1})"
+            c.font = font_bold
+            c.number_format = '#,##0 "₽"'
+            c.alignment = Alignment(horizontal="right")
+            
+    # -------------------------------------------------------------
+    # SHEET 4: РЕГЛАМЕНТЫ И СПРАВОЧНИК
+    # -------------------------------------------------------------
+    ws_set = wb.create_sheet(title="Регламенты и Спецификации")
+    ws_set.views.sheetView[0].showGridLines = True
+    
+    ws_set["B2"] = f"ТЕХНИЧЕСКИЙ РЕГЛАМЕНТ И ИНТЕРВАЛЫ: {vehicle.get('name', '')}"
+    ws_set["B2"].font = font_title
+    ws_set["B3"] = f"Спецификация масла: {vehicle.get('oil_spec', '-')} | VIN: {vehicle.get('vin', '-')}"
+    ws_set["B3"].font = font_subtitle
+    
+    set_headers = ["№", "ID", "Расходник / Узел", "Категория", "Интервал (км)", "Интервал (м/ч)", "Предупреждение (км)", "Спецификация / Артикул"]
+    for ci, h in enumerate(set_headers, start=2):
+        cell = ws_set.cell(row=5, column=ci, value=h)
+        cell.font = font_header
+        cell.fill = fill_header_navy
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thick_bottom_navy
+        
+    for r_idx, t in enumerate(trackers, start=6):
+        row_vals = [
+            r_idx - 5,
+            t.get("id", ""),
+            t.get("name", ""),
+            t.get("category", ""),
+            t.get("interval_km", 0),
+            t.get("interval_hours", 0) if t.get("interval_hours", 0) > 0 else "-",
+            t.get("warn_km", 1500),
+            t.get("article") or t.get("spec") or "-"
+        ]
+        for ci, val in enumerate(row_vals, start=2):
+            cell = ws_set.cell(row=r_idx, column=ci, value=val)
+            cell.font = font_regular
+            cell.border = thin_border
+            if ci in [6, 8]:
+                if isinstance(val, (int, float)):
+                    cell.number_format = '#,##0 "км"'
+            elif ci in [2, 3, 5, 7]:
+                cell.alignment = Alignment(horizontal="center")
+                
+    # Auto-adjust column widths for all sheets
+    for ws in [ws_charts, ws_status, ws_log, ws_set]:
         for col in ws.columns:
             col_letter = get_column_letter(col[0].column)
-            max_len = max(len(str(cell.value or '')) for cell in col)
-            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+            if col[0].column == 1: # Column A margin
+                ws.column_dimensions[col_letter].width = 3
+                continue
+            max_len = 0
+            for cell in col:
+                if cell.row in [2, 3]: continue # ignore big header text
+                val_str = str(cell.value or '')
+                if not val_str.startswith('='):
+                    max_len = max(max_len, len(val_str))
+            ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
             
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
     temp_file.close()
     wb.save(temp_file.name)
     
-    filename = f"Учет_обслуживания_{vehicle.get('brand', 'авто')}_{vehicle.get('model', '')}.xlsx"
+    clean_brand = "".join(c for c in vehicle.get('brand', 'авто') if c.isalnum() or c in (' ', '_', '-')).strip()
+    clean_model = "".join(c for c in vehicle.get('model', '') if c.isalnum() or c in (' ', '_', '-')).strip()
+    filename = f"Обслуживание_{clean_brand}_{clean_model}.xlsx"
+    
+    # URL encoded filename for RFC 5987 compatibility in Content-Disposition
+    encoded_filename = urllib.parse.quote(filename)
     
     return FileResponse(
         temp_file.name,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=filename
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
     )
 
 @app.get("/api/export-json")

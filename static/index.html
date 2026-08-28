@@ -128,10 +128,11 @@
                     <span class="hidden sm:inline">Пробег</span>
                 </button>
 
-                <!-- Export Excel (Hidden on mobile) -->
-                <a href="/api/export-excel" class="hidden md:flex items-center space-x-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-600/20 dark:hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-500/40 transition text-xs font-semibold" title="Скачать Excel-файл">
-                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-                    <span>Excel</span>
+                <!-- Export Excel with Charts Button -->
+                <a href="/api/export-excel" download class="flex items-center space-x-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/80 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition text-xs shadow-sm" title="Скачать полный отчет в Excel с интерактивными графиками и аналитикой">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+                    <span class="hidden sm:inline">Excel с графиками</span>
+                    <span class="sm:hidden">Excel</span>
                 </a>
 
                 <!-- Add Custom Expense / Upgrade Button (Visible on both Mobile and Desktop) -->
