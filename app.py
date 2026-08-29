@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Header, Depends, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, Response
 from pydantic import BaseModel
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1578,3 +1578,502 @@ if __name__ == "__main__":
     host = os.environ.get("HOST", "0.0.0.0")
     print(f"🚀 Starting Auto Maintenance Server on http://localhost:{port}")
     uvicorn.run("app:app", host=host, port=port, reload=False)
+
+
+# --- SERVICE BOOKLET (ELECTRONIC SERVICE BOOK) GENERATOR ---
+def generate_service_booklet_html(db: Dict[str, Any], vehicle: Dict[str, Any]) -> str:
+    v_id = vehicle.get("id", "car_1")
+    today_str = datetime.now().strftime("%d.%m.%Y")
+    
+    # 1. Gather vehicle records
+    all_records = db.get("maintenance_records", [])
+    records = [r for r in all_records if r.get("vehicle_id", "car_1") == v_id]
+    records.sort(key=lambda x: (x.get("date", ""), x.get("mileage", 0)), reverse=True)
+    
+    # 2. Gather tyre sets
+    all_tyres = db.get("tyre_sets", [])
+    tyres = [t for t in all_tyres if t.get("vehicle_id", "car_1") == v_id]
+    active_tyre = next((t for t in tyres if t.get("is_active")), None)
+    
+    # 3. Gather insurances
+    all_ins = db.get("insurances", [])
+    insurances = [i for i in all_ins if i.get("vehicle_id", "car_1") == v_id and i.get("is_active", True)]
+    
+    # 4. Gather consumables status
+    trackers = get_vehicle_trackers(db, vehicle)
+    current_km = vehicle.get("current_km", 0)
+    current_hours = vehicle.get("current_engine_hours", 0)
+    
+    consumables_rows = []
+    for tr in trackers:
+        if not tr.get("enabled", True):
+            continue
+        kw = tr.get("match", "").lower()
+        matching = [r for r in records if kw in r.get("item_name", "").lower()]
+        matching.sort(key=lambda x: (x.get("mileage", 0), x.get("date", "")))
+        latest = matching[-1] if matching else None
+        
+        last_date = latest.get("date", "-") if latest else "Нет данных"
+        last_km = f"{latest.get('mileage', 0):,} км".replace(",", " ") if latest else "—"
+        interval_km = tr.get("interval_km", 7500)
+        
+        if latest:
+            next_km = latest.get("next_km", latest.get("mileage", 0) + interval_km)
+            rem_km = next_km - max(current_km, latest.get("mileage", 0))
+            if rem_km <= 0:
+                st_badge = '<span class="badge badge-danger">Замена!</span>'
+            elif rem_km <= tr.get("warn_km", 1500):
+                st_badge = '<span class="badge badge-warning">Скоро замена</span>'
+            else:
+                st_badge = '<span class="badge badge-success">В норме</span>'
+            rem_text = f"осталось {rem_km:,} км".replace(",", " ")
+        else:
+            st_badge = '<span class="badge badge-warning">Не обслуживалось</span>'
+            rem_text = f"регламент {interval_km:,} км".replace(",", " ")
+            
+        consumables_rows.append(f"""
+        <tr>
+            <td><strong>{tr.get('name', 'Расходник')}</strong></td>
+            <td>{tr.get('category', 'ТО')}</td>
+            <td class="text-center">{last_date} ({last_km})</td>
+            <td class="text-center">{interval_km:,} км</td>
+            <td class="text-center">{st_badge} <span style="font-size: 11px; color: #64748b;">({rem_text})</span></td>
+        </tr>
+        """.replace(",", " "))
+
+    # 5. Group records into chronological Service Events
+    events_rows = []
+    total_cost_all = 0.0
+    to_count = 0
+    
+    grouped_events: Dict[str, Dict[str, Any]] = {}
+    for r in records:
+        tag = r.get("to_tag") or "Покупка"
+        key = f"{tag}_{r.get('date', '')}_{r.get('mileage', 0)}"
+        if key not in grouped_events:
+            grouped_events[key] = {
+                "tag": tag,
+                "date": r.get("date", ""),
+                "mileage": r.get("mileage", 0),
+                "engine_hours": r.get("engine_hours", 0),
+                "total_cost": 0.0,
+                "parts": []
+            }
+        grouped_events[key]["total_cost"] += float(r.get("total_price", 0.0) or r.get("price_per_unit", 0.0))
+        grouped_events[key]["parts"].append(r)
+        
+    for idx, (k, ev) in enumerate(grouped_events.items(), 1):
+        tag = ev["tag"]
+        is_to = tag.upper().startswith("ТО")
+        if is_to:
+            to_count += 1
+            badge_cls = "badge-to"
+        elif "ТЮНИНГ" in tag.upper() or "ДОРАБОТКА" in tag.upper():
+            badge_cls = "badge-upgrade"
+        elif "ШИН" in tag.upper() or "КОЛЕС" in tag.upper():
+            badge_cls = "badge-tyres"
+        elif "РЕМОНТ" in tag.upper():
+            badge_cls = "badge-repair"
+        else:
+            badge_cls = "badge-custom"
+            
+        parts_list_html = []
+        for p in ev["parts"]:
+            brand_art = []
+            if p.get("brand"): brand_art.append(f"<b>{p['brand']}</b>")
+            if p.get("article"): brand_art.append(f"арт. <span style='font-family: monospace;'>{p['article']}</span>")
+            brand_art_str = f" ({', '.join(brand_art)})" if brand_art else ""
+            
+            store_str = f" • <i>{p['store']}</i>" if p.get("store") else ""
+            qty_price = f"{p.get('quantity', 1)} {p.get('unit', 'шт')} × {float(p.get('price_per_unit', 0)):,.0f} ₽ = <b>{float(p.get('total_price', 0)):,.0f} ₽</b>".replace(",", " ")
+            note_str = f" <span style='color: #64748b;'>[{p['note']}]</span>" if p.get("note") and p['note'] != "Плановая замена" else ""
+            
+            parts_list_html.append(f"""
+            <div style="margin-bottom: 4px; font-size: 11.5px; line-height: 1.4;">
+                • <strong>{p.get('item_name', '')}</strong>{brand_art_str} — {qty_price}{store_str}{note_str}
+            </div>
+            """)
+            
+        ev_cost_str = f"{ev['total_cost']:,.0f} ₽".replace(",", " ")
+        total_cost_all += ev["total_cost"]
+        
+        events_rows.append(f"""
+        <tr>
+            <td class="text-center" style="font-weight: 700; color: #64748b;">{idx}</td>
+            <td class="text-center" style="white-space: nowrap;"><strong>{ev['date']}</strong></td>
+            <td class="text-center" style="white-space: nowrap;">
+                <div style="font-weight: 800; color: #0f172a;">{ev['mileage']:,} км</div>
+                <div style="font-size: 10.5px; color: #64748b;">{ev['engine_hours']} м/ч</div>
+            </td>
+            <td style="white-space: nowrap;"><span class="badge {badge_cls}">{tag}</span></td>
+            <td>{"".join(parts_list_html)}</td>
+            <td class="text-right" style="font-weight: 800; color: #059669; white-space: nowrap;">{ev_cost_str}</td>
+        </tr>
+        """.replace(",", " "))
+
+    # 6. Tyres Summary block
+    tyres_summary_html = ""
+    if active_tyre:
+        season_icon = "☀️" if active_tyre.get("season") == "summer" else ("❄️" if active_tyre.get("season") == "winter" else "🌦️")
+        tyres_summary_html = f"""
+        <div style="margin-top: 10px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px;">
+            <strong>🛞 Установленный комплект шин:</strong> {season_icon} {active_tyre.get('name', '')} ({active_tyre.get('size', '')}) {active_tyre.get('brand_model', '')} • Накат: <b>{active_tyre.get('current_km', 0):,} км</b> • Остаток протектора: <b>{active_tyre.get('tread_depth_mm', 8.0)} мм</b>
+        </div>
+        """.replace(",", " ")
+
+    # 7. Insurances block
+    ins_summary_html = ""
+    if insurances:
+        ins_items = []
+        for ins in insurances:
+            ins_type = "🛡️ ОСАГО" if ins.get("type") == "osago" else ("🚘 КАСКО" if ins.get("type") == "kasko" else "📑 Техосмотр")
+            ins_items.append(f"<b>{ins_type}</b> ({ins.get('company', '')} {ins.get('policy_number', '')}) — действует до <b>{ins.get('end_date', '—')}</b> ({ins.get('price', 0):,.0f} ₽)")
+        ins_summary_html = f"""
+        <div style="margin-top: 10px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; font-size: 12px; color: #166534;">
+            <strong>🛡️ Действующие страховые полисы:</strong> {' • '.join(ins_items)}
+        </div>
+        """.replace(",", " ")
+
+    total_formatted = f"{total_cost_all:,.0f} ₽".replace(",", " ")
+    consumables_table_body = "".join(consumables_rows) if consumables_rows else '<tr><td colspan="5" class="text-center" style="padding: 14px;">Нет данных об узлах</td></tr>'
+    events_table_body = "".join(events_rows) if events_rows else '<tr><td colspan="6" class="text-center" style="padding: 16px;">Нет записей об обслуживании</td></tr>'
+    
+    html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электронная сервисная книжка - {vehicle.get('brand', '')} {vehicle.get('model', '')} ({vehicle.get('plate', '')})</title>
+    <style>
+        @page {{
+            size: A4 portrait;
+            margin: 10mm 12mm;
+        }}
+        * {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #0f172a;
+            line-height: 1.45;
+            background: #f8fafc;
+            margin: 0;
+            padding: 24px;
+        }}
+        .booklet-container {{
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }}
+        .header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2.5px solid #2563eb;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+        }}
+        .logo-title {{
+            font-size: 22px;
+            font-weight: 900;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .subtitle {{
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+            margin-top: 2px;
+        }}
+        .header-meta {{
+            font-size: 11px;
+            color: #64748b;
+            text-align: right;
+            line-height: 1.4;
+        }}
+        .vehicle-card {{
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }}
+        .vehicle-card .item {{
+            display: flex;
+            flex-direction: column;
+        }}
+        .vehicle-card .label {{
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }}
+        .vehicle-card .value {{
+            font-size: 13px;
+            font-weight: 800;
+            color: #0f172a;
+        }}
+        .section-title {{
+            font-size: 13px;
+            font-weight: 800;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 20px 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 1.5px solid #e2e8f0;
+            padding-bottom: 5px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11.5px;
+            margin-bottom: 16px;
+        }}
+        th {{
+            background: #f8fafc;
+            color: #475569;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 2px solid #cbd5e1;
+            border-top: 1px solid #e2e8f0;
+        }}
+        td {{
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }}
+        tr:nth-child(even) td {{
+            background-color: #f8fafc;
+        }}
+        .text-center {{ text-align: center; }}
+        .text-right {{ text-align: right; }}
+        .badge {{
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }}
+        .badge-to {{ background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }}
+        .badge-upgrade {{ background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; }}
+        .badge-tyres {{ background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }}
+        .badge-repair {{ background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }}
+        .badge-custom {{ background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }}
+        .badge-success {{ background: #dcfce7; color: #166534; }}
+        .badge-warning {{ background: #fef3c7; color: #92400e; }}
+        .badge-danger {{ background: #fee2e2; color: #991b1b; }}
+        
+        .total-summary {{
+            background: #0f172a;
+            color: white;
+            padding: 14px 18px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 16px;
+        }}
+        .total-amount {{
+            font-size: 18px;
+            color: #34d399;
+            font-weight: 900;
+        }}
+        .footer-sign {{
+            margin-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #64748b;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 14px;
+        }}
+        .no-print {{
+            max-width: 900px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .btn {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            transition: 0.15s;
+        }}
+        .btn-print {{
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }}
+        .btn-print:hover {{ background: #1d4ed8; }}
+        .btn-back {{
+            background: #e2e8f0;
+            color: #334155;
+        }}
+        .btn-back:hover {{ background: #cbd5e1; }}
+        @media print {{
+            body {{ background: #fff; padding: 0; }}
+            .booklet-container {{ border: none; box-shadow: none; padding: 0; max-width: 100%; }}
+            .no-print {{ display: none !important; }}
+            tr {{ page-break-inside: avoid; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <a href="/" class="btn btn-back">← Назад в панель управления</a>
+        <button class="btn btn-print" onclick="window.print()">🖨️ Распечатать / Сохранить в PDF</button>
+    </div>
+
+    <div class="booklet-container">
+        <div class="header">
+            <div>
+                <div class="logo-title">🚗 Электронная сервисная книжка</div>
+                <div class="subtitle">Официальный журнал технического обслуживания, регламентов и спецификаций</div>
+            </div>
+            <div class="header-meta">
+                Дата формирования: <strong>{today_str}</strong><br>
+                Система: <strong>Авто ТО & Мониторинг v2.8</strong>
+            </div>
+        </div>
+
+        <!-- Vehicle Profile -->
+        <div class="vehicle-card">
+            <div class="item">
+                <span class="label">Автомобиль</span>
+                <span class="value">{vehicle.get('brand', '')} {vehicle.get('model', '')}</span>
+            </div>
+            <div class="item">
+                <span class="label">Госномер</span>
+                <span class="value" style="font-family: monospace;">{vehicle.get('plate') or 'Не указан'}</span>
+            </div>
+            <div class="item">
+                <span class="label">Год выпуска</span>
+                <span class="value">{vehicle.get('year') or '—'}</span>
+            </div>
+            <div class="item">
+                <span class="label">Двигатель / КПП</span>
+                <span class="value">{vehicle.get('engine') or '—'}</span>
+            </div>
+            <div class="item">
+                <span class="label">VIN номер</span>
+                <span class="value" style="font-family: monospace;">{vehicle.get('vin') or 'Не указан'}</span>
+            </div>
+            <div class="item">
+                <span class="label">Спецификация масла</span>
+                <span class="value">{vehicle.get('oil_spec') or '—'}</span>
+            </div>
+            <div class="item">
+                <span class="label">Текущий пробег</span>
+                <span class="value" style="color: #2563eb;">{vehicle.get('current_km', 0):,} км</span>
+            </div>
+            <div class="item">
+                <span class="label">Наработка</span>
+                <span class="value" style="color: #d97706;">{vehicle.get('current_engine_hours', 0):,} м/ч</span>
+            </div>
+        </div>
+
+        {tyres_summary_html}
+        {ins_summary_html}
+
+        <!-- Section: Consumables Status -->
+        <div class="section-title">🔧 Текущее состояние регламентных узлов и расходников</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 28%;">Расходный материал / Узел</th>
+                    <th style="width: 16%;">Категория</th>
+                    <th class="text-center" style="width: 24%;">Последняя замена</th>
+                    <th class="text-center" style="width: 14%;">Регламент</th>
+                    <th class="text-center" style="width: 18%;">Статус ресурса</th>
+                </tr>
+            </thead>
+            <tbody>
+                {consumables_table_body}
+            </tbody>
+        </table>
+
+        <!-- Section: Chronological Service Events -->
+        <div class="section-title">📋 История технического обслуживания и выполненных работ</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="text-center" style="width: 30px;">№</th>
+                    <th class="text-center" style="width: 80px;">Дата</th>
+                    <th class="text-center" style="width: 95px;">Пробег / МЧ</th>
+                    <th style="width: 85px;">Событие</th>
+                    <th>Выполненные работы, детали и материалы</th>
+                    <th class="text-right" style="width: 95px;">Сумма</th>
+                </tr>
+            </thead>
+            <tbody>
+                {events_table_body}
+            </tbody>
+        </table>
+
+        <!-- Total Summary Bar -->
+        <div class="total-summary">
+            <div>
+                Всего пройденных событий ТО: <strong>{to_count}</strong> • Всего записей в книжке: <strong>{len(records)}</strong>
+            </div>
+            <div>
+                Итого вложений: <span class="total-amount">{total_formatted}</span>
+            </div>
+        </div>
+
+        <!-- Footer Signatures -->
+        <div class="footer-sign">
+            <div>
+                Владелец: ____________________ / <strong>{vehicle.get('name', 'Владелец')}</strong> /
+            </div>
+            <div>
+                Отметка сервиса / Подпись: ____________________ (М.П.)
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+""".replace(",", " ")
+    return html
+
+@app.get("/api/service-booklet")
+def get_active_service_booklet():
+    db = load_db()
+    vehicle = get_active_vehicle(db)
+    html = generate_service_booklet_html(db, vehicle)
+    return Response(content=html, media_type="text/html")
+
+@app.get("/api/service-booklet/{vehicle_id}")
+def get_vehicle_service_booklet(vehicle_id: str):
+    db = load_db()
+    vehicles = db.get("vehicles", [])
+    vehicle = next((v for v in vehicles if v.get("id") == vehicle_id), None)
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    html = generate_service_booklet_html(db, vehicle)
+    return Response(content=html, media_type="text/html")
